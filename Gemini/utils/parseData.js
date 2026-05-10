@@ -9,25 +9,45 @@ import path from 'path';
 function parsePrompts(data) {
     // Ambil paragraphs atau raw
     let rawString = '';
-    
-    if (data.paragraphs && data.paragraphs.length > 0) {
-        rawString = data.paragraphs[0];
-        console.log('✓ Using paragraphs data');
-    } else if (data.raw) {
+
+    if (data.raw) {
         rawString = data.raw;
         console.log('✓ Using raw data');
+    } else if (data.paragraphs && data.paragraphs.length > 0) {
+        rawString = data.paragraphs[0];
+        console.log('✓ Using paragraphs data');
     } else {
-        console.warn('✗ No paragraphs or raw data found');
+        console.warn('✗ No raw or paragraphs data found');
         return [];
     }
 
     const prompts = [];
-    
-    // Data berupa string dengan multiple JSON objects
-    // Split pattern bisa }\n{ atau }{ atau bahkan newline literal
+
+    // ── Coba 1: JSON array  [{"prompt":"..."},{"prompt":"..."}] ──────────────
+    // Cari bracket [ ... ] di dalam string (Gemini kadang nulis teks dulu)
+    const arrayMatch = rawString.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+        try {
+            const parsed = JSON.parse(arrayMatch[0]);
+            if (Array.isArray(parsed)) {
+                for (const item of parsed) {
+                    if (item.prompt && typeof item.prompt === 'string') {
+                        prompts.push({ prompt: item.prompt });
+                    }
+                }
+                if (prompts.length > 0) {
+                    console.log(`  ✓ [Array format] Extracted ${prompts.length} prompts\n`);
+                    return prompts;
+                }
+            }
+        } catch (_) {
+            // lanjut ke fallback
+        }
+    }
+
+    // ── Coba 2: multiple JSON objects  {...}\n{...} (format lama) ─────────────
     let objectStrings = [];
-    
-    // Coba pattern dengan \n terlebih dahulu
+
     if (rawString.includes('}\n{')) {
         objectStrings = rawString.split('}\n{');
     } else if (rawString.includes('}{')) {
@@ -35,39 +55,30 @@ function parsePrompts(data) {
     } else {
         objectStrings = [rawString];
     }
-    
-    console.log(`  Splitting found ${objectStrings.length} segments`);
-    
+
+    console.log(`  [Object format] Splitting found ${objectStrings.length} segments`);
+
     for (let i = 0; i < objectStrings.length; i++) {
         let objStr = objectStrings[i].trim();
-        
+
         if (!objStr) continue;
-        
+
         // Reconstruct valid JSON object
-        if (i > 0 && !objStr.startsWith('{')) {
-            objStr = '{' + objStr;
-        }
-        if (i < objectStrings.length - 1 && !objStr.endsWith('}')) {
-            objStr = objStr + '}';
-        }
-        
-        // Ensure proper format
+        if (i > 0 && !objStr.startsWith('{')) objStr = '{' + objStr;
+        if (i < objectStrings.length - 1 && !objStr.endsWith('}')) objStr = objStr + '}';
         if (!objStr.startsWith('{')) objStr = '{' + objStr;
         if (!objStr.endsWith('}')) objStr = objStr + '}';
-        
+
         try {
             const parsed = JSON.parse(objStr);
-            
             if (parsed.prompt && typeof parsed.prompt === 'string') {
-                prompts.push({
-                    prompt: parsed.prompt
-                });
+                prompts.push({ prompt: parsed.prompt });
             }
-        } catch (err) {
+        } catch (_) {
             // Skip invalid JSON
         }
     }
-    
+
     console.log(`  ✓ Extracted ${prompts.length} prompts\n`);
     return prompts;
 }

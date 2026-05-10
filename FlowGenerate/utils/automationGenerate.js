@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createCursor } from 'ghost-cursor';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,17 +64,21 @@ export function attachFlowListener(page, saveDir = './Hasil') {
         page.off('response', listener);
     };
 
+    const reset = () => {
+        savedCount = 0;
+        savedFiles.length = 0;
+        callbacks.length = 0;
+    };
+
     const waitForImages = (targetCount, timeoutMs = 60000) => {
         return new Promise((resolve) => {
             if (targetCount <= 0) {
-                stop();
                 return resolve({ savedCount, savedFiles });
             }
 
             let timeout = null;
             if (timeoutMs > 0) {
                 timeout = setTimeout(() => {
-                    stop();
                     resolve({ savedCount, savedFiles });
                 }, timeoutMs);
             }
@@ -81,7 +86,6 @@ export function attachFlowListener(page, saveDir = './Hasil') {
             const onSaved = (count) => {
                 if (count >= targetCount) {
                     if (timeout) clearTimeout(timeout);
-                    stop();
                     resolve({ savedCount, savedFiles });
                 }
             };
@@ -90,14 +94,13 @@ export function attachFlowListener(page, saveDir = './Hasil') {
 
             if (savedCount >= targetCount) {
                 if (timeout) clearTimeout(timeout);
-                stop();
                 resolve({ savedCount, savedFiles });
             }
         });
     };
 
     console.log('[Flow] 🟢 Listener aktif');
-    return { waitForImages, stop, getSavedCount: () => savedCount };
+    return { waitForImages, stop, reset, getSavedCount: () => savedCount };
 }
 
 /**
@@ -112,12 +115,19 @@ export function attachFlowListener(page, saveDir = './Hasil') {
  */
 export async function generate(page, profile, prompts, saveDir, expectedCount = 3, timeoutMs = 60000) {
     let successCount = 0;
+    const cursor = createCursor(page);
     try {
-        await page.evaluate(() => {
-            const btn = [...document.querySelectorAll('button')]
-                .find(b => b.textContent.includes('Project baru'));
-            btn?.click();
+        // Cari tombol 'Project baru' lalu click pakai cursor
+        const projectBtnHandle = await page.evaluateHandle(() => {
+            return [...document.querySelectorAll('button')]
+                .find(b => b.textContent.includes('Project baru')) || null;
         });
+        if (projectBtnHandle && (await projectBtnHandle.asElement())) {
+            await cursor.move(await projectBtnHandle.asElement(), { hesitate: 100 });
+            await cursor.click(await projectBtnHandle.asElement(), { hesitate: 80, waitForClick: 50 });
+        } else {
+            console.log('Tombol Project baru tidak ditemukan, skip click');
+        }
         console.log('Click berhasil');
 
         await delay(6000); // Tunggu 6 detik untuk memastikan UI sudah siap
@@ -126,6 +136,7 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
         const listener = attachFlowListener(page, saveDir);
 
         for (let i = 0; i < prompts.length; i++) {
+            listener.reset(); // Reset counter untuk prompt baru ini
             const prompt = prompts[i];
             console.log(`\n▶️ Memproses prompt ${i+1}/${prompts.length}: ${prompt.substring(0, 60)}...`);
 
@@ -137,7 +148,13 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
                 if (el) el.textContent = '';
             }, textBox);
 
-            await page.type(textBox, prompt);
+            // Move cursor ke textbox lalu focus + type
+            await page.click(textBox, { clickCount: 1 });
+            await page.keyboard.down('Control');
+            await page.keyboard.press('KeyA');
+            await page.keyboard.up('Control');
+            await page.keyboard.press('Backspace');
+            await page.keyboard.type(prompt);
             await delay(2000);
             console.log('Typing berhasil');
 

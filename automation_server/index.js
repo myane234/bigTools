@@ -1,4 +1,5 @@
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -17,6 +18,7 @@ import { GeminiClient } from "../Gemini/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+puppeteer.use(StealthPlugin())
 // Note: downloads folder will be created inside `outputDir` provided by the user
 
 //testing
@@ -363,15 +365,15 @@ export async function main() {
       `\n Gambar berhasil disimpan di folder: ${path.join(outputDir, "downloads")}`,
     );
 
-    if(scrollResult.successCount) {
+    if (scrollResult.successCount) {
       console.log(`Total gambar valid yang diproses: ${scrollResult.successCount}`);
 
       await GeminiClient(outputDir, 10); // proses Gemini untuk semua gambar yang valid
-      
+
       // Setelah GeminiClient selesai, jalankan generateImageFlow
       const { generateImageFlow } = await import('../FlowGenerate/index.js');
       await generateImageFlow(outputDir);
-    } 
+    }
 
     // // Generate gambar dengan Whisk
     // await generateImagesFromGeminiResults(WhiskWorkersNum, outputDir); // jumlah worker bisa disesuaikan, misal 3 untuk proses paralel

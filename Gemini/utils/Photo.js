@@ -1,15 +1,16 @@
 import path from 'path'
 import fs from 'fs'
+import { createCursor } from 'ghost-cursor';
 
 const delay = ms => (new Promise(resolve => setTimeout(resolve, ms)))
 
-async function openUploadMenu(page, options = {}) {
+async function openUploadMenu(page, cursor, options = {}) {
   const { timeout = 10000, waitAfter = 500 } = options;
  
   const selector = 'button[aria-controls="upload-file-menu"]';
  
   await page.waitForSelector(selector, { timeout, visible: true });
-  await page.click(selector);
+  await cursor.click(selector, { hesitate: 80, waitForClick: 50 });
   await delay(waitAfter)
  
   console.log('[uploadMenu] Menu upload berhasil dibuka');
@@ -20,7 +21,7 @@ async function openUploadMenu(page, options = {}) {
  * lalu handle file chooser dialog
  * @param {string|string[]} filePaths - path file yang akan diupload
  */
-async function clickUploadFiles(page, filePaths, options = {}) {
+async function clickUploadFiles(page, cursor, filePaths, options = {}) {
   const { timeout = 10000, waitAfter = 1000 } = options;
  
   const selector = 'button[data-test-id="local-images-files-uploader-button"]';
@@ -30,7 +31,7 @@ async function clickUploadFiles(page, filePaths, options = {}) {
   // Tangkap file chooser dialog SEBELUM click
   const [fileChooser] = await Promise.all([
     page.waitForFileChooser({ timeout }),
-    page.click(selector),
+    cursor.click(selector, { hesitate: 100, waitForClick: 60 }),
   ]);
  
   const files = Array.isArray(filePaths) ? filePaths : [filePaths];
@@ -47,8 +48,9 @@ async function clickUploadFiles(page, filePaths, options = {}) {
  * @param {string|string[]} filePaths - path file yang akan diupload
  */
 export async function uploadFile(page, filePaths, options = {}) {
-  await openUploadMenu(page, options);
-  await clickUploadFiles(page, filePaths, options);
+  const cursor = createCursor(page);
+  await openUploadMenu(page, cursor, options);
+  await clickUploadFiles(page, cursor, filePaths, options);
   console.log('[uploadFile] Upload flow selesai');
   return true;
 }

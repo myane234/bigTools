@@ -1,10 +1,12 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'fs/promises'
 import { generate } from './utils/automationGenerate.js';
 
 
 const profiles = await fs.readdir("D:\\chrome-profiles")
 
+puppeteer.use(StealthPlugin())
 console.log(profiles)
 
 class browser {
@@ -21,6 +23,8 @@ class browser {
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
+                '--start-maximized',
+                '--disable-blink-features=AutomationControlled'
             ]
         });
 
@@ -66,74 +70,74 @@ export async function generateImageFlow(outputDir, promptsPerProfile = 3, images
 
         await delay(5000); // Tunggu 5 detik sebelum mulai
 
-        let promptIndex = 0; // Track index prompt yang sedang diproses
-        let round = 0;
-        let roundSuccess = false; // Initialize roundSuccess
+        let round = 1;
+        let promptsToProcess = [...prompts];
 
-        while (promptIndex < prompts.length) {
-            round++;
-            roundSuccess = false; // Reset setiap round
-            console.log(`\n🔁 Mulai round ${round} dengan ${prompts.length - promptIndex} prompt tersisa`);
+        while (promptsToProcess.length > 0) {
+            console.log(`\n🔁 Mulai round ${round} dengan ${promptsToProcess.length} prompt tersisa`);
+            const failedPrompts = [];
+
+            // Siapkan distribusi prompt untuk semua profil yang tersedia
+            const profileToPrompts = {};
+            for (const profile of profiles) {
+                profileToPrompts[profile] = [];
+            }
+
+            // Bagi rata prompt ke semua profil secara berurutan
+            for (let i = 0; i < promptsToProcess.length; i++) {
+                const profileIndex = i % profiles.length;
+                const profile = profiles[profileIndex];
+                profileToPrompts[profile].push(promptsToProcess[i]);
+            }
+
+            let roundSuccess = false;
 
             // Jalankan profil dalam batch sesuai maxConcurrentProfiles
             for (let i = 0; i < profiles.length; i += maxConcurrentProfiles) {
-                if (promptIndex >= prompts.length) break;
-
                 const currentProfiles = profiles.slice(i, i + maxConcurrentProfiles);
-                console.log(`\n🚀 [Batch] Menjalankan ${currentProfiles.length} profil secara bersamaan...`);
 
-                const tasks = [];
-                const batchFailedPrompts = [];
+                const activeProfilesInBatch = currentProfiles.filter(p => profileToPrompts[p].length > 0);
+                if (activeProfilesInBatch.length === 0) continue;
 
-                for (let pIndex = 0; pIndex < currentProfiles.length; pIndex++) {
-                    const profile = currentProfiles[pIndex];
-                    if (promptIndex >= prompts.length) break;
+                console.log(`\n🚀 [Batch] Menjalankan ${activeProfilesInBatch.length} profil secara bersamaan...`);
 
-                    const batchPrompts = prompts.slice(promptIndex, promptIndex + promptsPerProfile);
-                    promptIndex += batchPrompts.length;
-
+                const tasks = activeProfilesInBatch.map(profile => {
+                    const batchPrompts = profileToPrompts[profile];
                     console.log(`👤 Profil: ${profile} | 📝 Ditugaskan ${batchPrompts.length} prompt`);
 
-                    const task = scrape(profile, batchPrompts, saveDir, imagesPerPrompt, promptTimeoutMs)
+                    return scrape(profile, batchPrompts, saveDir, imagesPerPrompt, promptTimeoutMs)
                         .then(successCount => {
-                            if (successCount > 0) {
-                                roundSuccess = true;
-                                console.log(`✅ Profile '${profile}' sukses memproses ${successCount}/${batchPrompts.length} prompt`);
-                            } else {
-                                console.log(`⚠️ Profile '${profile}' gagal memproses seluruh prompt`);
-                            }
+                            if (successCount > 0) roundSuccess = true;
+                            console.log(`✅ Profile '${profile}' sukses memproses ${successCount}/${batchPrompts.length} prompt`);
 
                             if (successCount < batchPrompts.length) {
-                                const failedPrompts = batchPrompts.slice(successCount);
-                                batchFailedPrompts.push(...failedPrompts);
-                                console.log(`⚠️ ${failedPrompts.length} prompt dari profile '${profile}' akan dikembalikan ke antrean.`);
+                                const failed = batchPrompts.slice(successCount);
+                                failedPrompts.push(...failed);
+                                console.log(`⚠️ ${failed.length} prompt dari profile '${profile}' gagal dan akan dikembalikan ke antrean.`);
                             }
                         })
                         .catch(err => {
                             console.error(`❌ Error tidak terduga pada profile '${profile}':`, err);
-                            batchFailedPrompts.push(...batchPrompts);
+                            failedPrompts.push(...batchPrompts);
                         });
+                });
 
-                    tasks.push(task);
-                }
-
-                // Tunggu semua profil dalam batch ini selesai
                 await Promise.all(tasks);
-
-                // Jika ada prompt yang gagal, kembalikan ke antrean utama
-                if (batchFailedPrompts.length > 0) {
-                    prompts.splice(promptIndex, 0, ...batchFailedPrompts);
-                    console.log(`♻️ ${batchFailedPrompts.length} prompt dikembalikan ke antrean. Total antrean tersisa: ${prompts.length - promptIndex}`);
-                }
             }
 
-            if (!roundSuccess) {
+            if (!roundSuccess && failedPrompts.length > 0) {
                 console.log('⚠️ Tidak ada profile yang berhasil dalam round ini. Hentikan loop agar tidak infinite.');
                 break;
             }
+
+            promptsToProcess = failedPrompts;
+            if (promptsToProcess.length > 0) {
+                console.log(`♻️ ${promptsToProcess.length} prompt dikembalikan ke antrean untuk round berikutnya.`);
+            }
+            round++;
         }
 
-        console.log(`\n✅ Selesai generateImageFlow (${promptIndex}/${prompts.length} prompt berhasil diproses)`);
+        console.log(`\n✅ Selesai generateImageFlow`);
     } catch (err) {
         console.error(err);
     }
