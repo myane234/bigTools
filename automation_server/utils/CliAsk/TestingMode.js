@@ -3,8 +3,9 @@ import { ask } from "./tanya.js";
 export async function testingMode() {
     console.log(`
 Pilih Mode Testing:
-1. Hanya scrape
-2. Scrape + Gemini + Whisk
+1. Scrape + Groq
+2. Scrape + Groq + FlowGenerate
+3. Hanya scrape
 
 `);
 

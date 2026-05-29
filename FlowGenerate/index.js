@@ -23,16 +23,19 @@ class browser {
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
-                '--start-maximized',
-                '--disable-blink-features=AutomationControlled'
-            ]
+                '--start-maximized'
+            ],
+            defaultViewport: null
         });
 
-        this.page = await this.browser.newPage();
+        const pages = await this.browser.pages();
+        this.page = pages.length > 0 ? pages[0] : await this.browser.newPage();
     }
 
     async close() {
         if (this.browser) {
+            // Berikan jeda sebentar sebelum close agar browser sempat nulis data ke disk
+            await new Promise(r => setTimeout(r, 1000));
             await this.browser.close();
         }
     }
@@ -101,9 +104,15 @@ export async function generateImageFlow(outputDir, promptsPerProfile = 3, images
 
                 console.log(`\n🚀 [Batch] Menjalankan ${activeProfilesInBatch.length} profil secara bersamaan...`);
 
-                const tasks = activeProfilesInBatch.map(profile => {
+                const tasks = activeProfilesInBatch.map(async (profile, idx) => {
                     const batchPrompts = profileToPrompts[profile];
                     console.log(`👤 Profil: ${profile} | 📝 Ditugaskan ${batchPrompts.length} prompt`);
+
+                    // Staggered delay agar browser tidak terbuka secara bersamaan di detik yang sama
+                    if (idx > 0) {
+                        const staggerDelay = idx * 3000; // 3 detik per browser
+                        await delay(staggerDelay);
+                    }
 
                     return scrape(profile, batchPrompts, saveDir, imagesPerPrompt, promptTimeoutMs)
                         .then(successCount => {

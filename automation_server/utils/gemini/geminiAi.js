@@ -43,50 +43,104 @@ const model = 'gemini-2.5-flash-lite';
 // Do not include any other text. Output ONLY the JSON object. Avoid making it identical to the original image; keep similarity around 80% while creatively reimagining the subject.
 // `
 
+// import fs from 'fs';
+// import { Groq } from 'groq-sdk';
+
+// const groq = new Groq({
+//     apiKey: '' // Pastikan API Key terisi
+// });
+
+// async function main() {
+//     // 1. Tentukan path gambar lokal
+//     const imagePath = './TestingImage/backup/test.jpg';
+
+//     try {
+//         // 2. Baca file secara sinkron/asinkron dan ubah ke base64
+//         const imageBuffer = fs.readFileSync(imagePath);
+//         const base64Image = imageBuffer.toString('base64');
+
+//         // 3. Hit API Groq
+//         const chatCompletion = await groq.chat.completions.create({
+//             "messages": [
+//                 {
+//                     "role": "user",
+//                     "content": [
+//                         {
+//                             "type": "text",
+//                             "text": "What's in this image?"
+//                         },
+//                         {
+//                             "type": "image_url",
+//                             "image_url": {
+//                                 // Gabungkan format data URL dengan string base64
+//                                 "url": `data:image/jpeg;base64,${base64Image}`
+//                             }
+//                         }
+//                     ]
+//                 }
+//             ],
+//             // Pastikan model yang kamu pilih mendukung Vision (seperti Llama-3.2-11b-Vision-Preview)
+//             "model": "meta-llama/llama-4-scout-17b-16e-instruct", 
+//             "temperature": 1,
+//             "max_completion_tokens": 1024,
+//             "top_p": 1,
+//             "stream": false,
+//             "stop": null
+//         });
+
+//         console.log(chatCompletion.choices[0].message.content);
+//     } catch (error) {
+//         console.error("Terjadi kesalahan:", error.message);
+//     }
+// }
+
+// main();
 
 class Gemini {
     static async generateImage(image) {
         const prompt = getPrompt();
         try {
-        
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                contents: [
+            const res = await groq.chat.completions.create({
+                "messages": [
                     {
-                        "parts": [
-                            { "text": prompt},
+                        "role": "user",
+                        "content": [
                             {
-                                inline_data: {
-                                    mime_type: 'image/jpeg',
-                                    data: image
+                                "type": "text",
+                                "text": prompt
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    // Gabungkan format data URL dengan string base64
+                                    "url": `data:image/jpeg;base64,${image}`
                                 }
                             }
                         ]
                     }
-                ]
-            })
-        })
+                ],
+                // Pastikan model yang kamu pilih mendukung Vision (seperti Llama-3.2-11b-Vision-Preview)
+                "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+                "temperature": 1,
+                "max_completion_tokens": 1024,
+                "top_p": 1,
+                "stream": false,
+                "stop": null
+            });
+            if (!res.ok) {
+                throw new Error(`API error: ${res.status} ${res.statusText}`);
+            }
+            console.log(chatCompletion.choices[0].message.content);
+            if (!chatCompletion.choices[0] || !chatCompletion.choices[0].message.content) {
+                throw new Error('Invalid response format from Gemini API');
+            }
 
-        if (!res.ok) {
-            throw new Error(`API error: ${res.status} ${res.statusText}`);
+            const imageData = chatCompletion.choices[0].message.content;
+            return imageData;
+        } catch (err) {
+            console.error('Error generating image:', err);
+            throw err;
         }
-
-        const data = await res.json();
-        
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts[0]) {
-            throw new Error('Invalid response format from Gemini API');
-        }
-
-        const imageData = data.candidates[0].content.parts[0].text;
-        return imageData;
-    } catch(err) {
-        console.error('Error generating image:', err);
-        throw err;
-    }
     }
 }
 

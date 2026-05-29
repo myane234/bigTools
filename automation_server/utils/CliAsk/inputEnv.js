@@ -5,8 +5,7 @@ import { ask } from './tanya.js';
 
 function createEnvFile(envPath) {
     const defaultContent = `# Auto Generated .env
-GEMINI_API=
-BEARER_TOKEN=
+GROQ_API_KEYS=
 `;
     fs.writeFileSync(envPath, defaultContent);
 }
@@ -63,8 +62,8 @@ function parseTxt(filePath) {
         config[key.trim()] = val.join("=").trim();
     }
 
-    if (!config.GEMINI_API || !config.BEARER_TOKEN) {
-        throw new Error("Format TXT salah. Harus ada API dan BEARER_TOKEN");
+    if (!config.GROQ_API_KEYS) {
+        throw new Error("Format TXT salah. Harus ada GROQ_API_KEYS");
     }
 
     return config;
@@ -82,11 +81,10 @@ export async function env() {
 
         dotenv.config({ path: envPath });
 
-        let gemini = process.env.GEMINI_API;
-        let tokensRaw = process.env.BEARER_TOKEN;
+        let groqKeys = process.env.GROQ_API_KEYS;
 
         // 🔥 Kalau ENV belum lengkap
-        if (!gemini?.trim() || !tokensRaw?.trim()) {
+        if (!groqKeys?.trim()) {
 
             console.log("\nENV belum lengkap.");
             console.log("[1] Input manual");
@@ -102,19 +100,17 @@ export async function env() {
                 const config = parseTxt(txtPath.trim());
 
                 newContent = `# Auto Generated .env
-GEMINI_API=${config.GEMINI_API}
-BEARER_TOKEN=${config.BEARER_TOKEN}
+GROQ_API_KEYS=${config.GROQ_API_KEYS}
 `;
 
                 console.log(" Berhasil load dari TXT ✅");
 
             } else {
 
-                gemini = await ask("Masukkan codeA: ");
+                groqKeys = await ask("Masukkan GROQ_API_KEYS (pisahkan dengan koma jika lebih dari satu): ");
 
                 newContent = `# Auto Generated .env
-GEMINI_API=${gemini}
-BEARER_TOKEN=
+GROQ_API_KEYS=${groqKeys}
 `;
 
                 console.log(" ENV berhasil diisi manual ✅");
@@ -123,31 +119,21 @@ BEARER_TOKEN=
             fs.writeFileSync(envPath, newContent);
             dotenv.config({ path: envPath, override: true });
 
-            tokensRaw = process.env.BEARER_TOKEN;
+            // Tokens dihapus
         }
-
-        const tokenList = tokensRaw
-            .split(',')
-            .map(t => t.trim())
-            .filter(Boolean);
-
-        console.log(` Total token ditemukan: ${tokenList.length}`);
 
         showEnv(envPath);
 
-        const askEditEnv = await ask(`Apakah ingin edit API & Token? (y/n): `);
-        if(askEditEnv.trim().toLowerCase() === 'y') {
-            const newGemini = await ask("Masukkan GEMINI_API baru (biarkan kosong untuk tidak mengubah): ");
-            const newTokens = await ask("Masukkan BEARER_TOKEN baru (pisahkan koma, biarkan kosong untuk tidak mengubah): ");
+        const askEditEnv = await ask(`Apakah ingin edit API? (y/n): `);
+        if (askEditEnv.trim().toLowerCase() === 'y') {
+            const newGroq = await ask("Masukkan GROQ_API_KEYS baru (pisahkan koma, biarkan kosong untuk tidak mengubah): ");
             updateEnvFile(envPath, {
-                ...(newGemini.trim() && { GEMINI_API: newGemini.trim() }),
-                ...(newTokens.trim() && { BEARER_TOKEN: newTokens.trim() })
+                ...(newGroq.trim() && { GROQ_API_KEYS: newGroq.trim() })
             });
         }
 
         return {
-            geminiApi: process.env.GEMINI_API,
-            bearerTokens: tokenList
+            groqApiKeys: process.env.GROQ_API_KEYS
         };
 
     } catch (err) {
@@ -155,3 +141,4 @@ BEARER_TOKEN=
         throw err;
     }
 }
+

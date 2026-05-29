@@ -1,9 +1,10 @@
 import inquirer from "inquirer";
 import chalk from "chalk";
 import { spawn } from "child_process";
-import { env } from "./utils/CliAsk/inputEnv.js";
-import { main } from "./index.js";
-import { setPrompt } from "./utils/gemini/getPromptvalue.js";
+import { env } from "./automation_server/utils/CliAsk/inputEnv.js";
+import { main, startGroqNFlowGenerate } from "./automation_server/index.js";
+import { setPrompt } from "./automation_server/utils/groq/getPromptvalue.js";
+import GroqAi from "./automation_server/utils/groq/groqAi.js";
 import { start } from "repl";
 
 const promptMap = {
@@ -34,7 +35,7 @@ Example output:
 Do not include any other text. Output ONLY the JSON object. Avoid making it identical to the original image; keep similarity around 80% while creatively reimagining the subject.`,
 };
 
-export async function promptGeminiSelector() {
+export async function promptGroqSelector() {
   console.log(`
         1.Normal prompt
         2.Force Siluet
@@ -63,10 +64,10 @@ async function mainMenu() {
 =============================
 `),
   );
-  console.log("[1] Input API & Token");
-  console.log("[2] Test Token");
-  console.log("[3] Start Automation");
-  console.log("[4] Start Gemini NWhisk");
+  console.log("[1] Input API");
+  console.log("[2] Start Automation");
+  console.log("[3] Start Groq NFlowGenerate");
+  console.log("[4] Test API Keys");
   console.log("[0] Exit\n");
   const { choice } = await inquirer.prompt([
     {
@@ -74,9 +75,10 @@ async function mainMenu() {
       name: "choice",
       message: "Pilih mode:",
       choices: [
-        { name: "Input API & Token", value: "1" },
-        { name: "Test Token", value: "2" },
-        { name: "Start Automation", value: "3" },
+        { name: "Input API", value: "1" },
+        { name: "Start Automation", value: "2" },
+        { name: "Start Groq NFlowGenerate", value: "3" },
+        { name: "Test API Keys", value: "4" },
         { name: "Exit", value: "0" },
       ],
     },
@@ -87,12 +89,17 @@ async function mainMenu() {
       await env();
       break;
     case "2":
-      await runScript("node", ["scriptTest/testBearer.js"]);
-      break;
-    case "3":
-      const prompt1 = await promptGeminiSelector(); // ambil 1x
+      const prompt1 = await promptGroqSelector(); // ambil 1x
       setPrompt(prompt1);
       await main();
+      break;
+    case "3":
+      const prompt2 = await promptGroqSelector();
+      setPrompt(prompt2);
+      await startGroqNFlowGenerate();
+      break;
+    case "4":
+      await GroqAi.testApi();
       break;
     case "0":
       console.log(chalk.red("\nBye bro 👋\n"));
@@ -116,13 +123,12 @@ async function pause() {
 }
 
 function checkEnv() {
-  const gemini = process.env.GEMINI_API;
-  const tokensRaw = process.env.BEARER_TOKEN;
+  const groqKeys = process.env.GROQ_API_KEYS;
 
-  if (!gemini?.trim() || !tokensRaw?.trim()) {
+  if (!groqKeys?.trim()) {
     console.log(chalk.red("\nENV belum lengkap!"));
     console.log(
-      chalk.red(`Input Blabla & Token terlebih dahulu melalui menu [1]`),
+      chalk.red(`Input API terlebih dahulu melalui menu [1]`),
     );
     return false;
   }

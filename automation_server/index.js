@@ -1,5 +1,4 @@
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from 'puppeteer-extra-plugin-stealth'
+import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -10,15 +9,14 @@ import {
   setDownloaderFinished,
   getDownloaderFinished,
 } from "./utils/queue.js";
-import { ask, askAwal } from "./utils/CliAsk/tanya.js";
+import { ask, askAwal, askGroqNFlowGenerate } from "./utils/CliAsk/tanya.js";
 import { scrollAll, delay } from "./utils/scrool.js";
-import Gemini from "./utils/gemini/geminiAi.js";
+import GroqAi from "./utils/groq/groqAi.js";
+import { generateImageFlow } from "../FlowGenerate/index.js";
 import { stopTesting, testingMode } from "./utils/CliAsk/TestingMode.js";
-import { GeminiClient } from "../Gemini/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-puppeteer.use(StealthPlugin())
 // Note: downloads folder will be created inside `outputDir` provided by the user
 
 //testing
@@ -27,7 +25,7 @@ let testingPilihan = null;
 
 if (modeScrape) {
   testingPilihan = await testingMode();
-  let limitGemini = 5; // kalau testing, batasi proses Gemini cuman 5
+  let limitGroq = 5; // kalau testing, batasi proses Groq cuma 5
 }
 
 //blokade
@@ -48,46 +46,21 @@ async function checkKeyApp() {
   return true;
 }
 
-const tokenFile = path.join("D:", "tokens.txt");
-
-
-const tokens = (await fs.promises.readFile(tokenFile, "utf8"))
-  .split(/\r?\n|,/)
-  .map((t) => t.trim())
-  .filter(Boolean);
-
-export async function calculateWorkerCount() {
-  try {
-    const workersPerToken = 2; // sesuaikan dengan kebutuhan: setiap token punya 2 worker
-    const workerCount = tokens.length * workersPerToken;
-
-    // safety: jika ada limit max dari provider, ganti di sini (misal 10 worker max)
-    // const maxFtps = 10;
-    // const workerCountFinal = Math.min(workerCount, maxFtps);
-
-    console.log(
-      `Worker count yang akan digunakan: ${workerCount} (dengan ${tokens.length} token, ${workersPerToken} worker/token)`,
-    );
-    return workerCount;
-  } catch (err) {
-    console.error("Error calculating worker count:", err);
-    throw err;
-  }
-}
+// Blokade logic removed as calculateWorkerCount and tokens are no longer needed
 
 //Blokade
 
-const GEMINI_MAX_REQ_PER_MINUTE = 120;
-const GEMINI_MIN_INTERVAL_MS = Math.ceil(60000 / GEMINI_MAX_REQ_PER_MINUTE); // 500 ms
-let lastGeminiRequestTs = 0;
+const GROQ_MAX_REQ_PER_MINUTE = 30;
+const GROQ_MIN_INTERVAL_MS = Math.ceil(60000 / GROQ_MAX_REQ_PER_MINUTE); // 2000 ms
+let lastGroqRequestTs = 0;
 
-async function waitGeminiRateLimit() {
+async function waitGroqRateLimit() {
   const now = Date.now();
-  const elapsed = now - lastGeminiRequestTs;
-  if (elapsed < GEMINI_MIN_INTERVAL_MS) {
-    await delay(GEMINI_MIN_INTERVAL_MS - elapsed);
+  const elapsed = now - lastGroqRequestTs;
+  if (elapsed < GROQ_MIN_INTERVAL_MS) {
+    await delay(GROQ_MIN_INTERVAL_MS - elapsed);
   }
-  lastGeminiRequestTs = Date.now();
+  lastGroqRequestTs = Date.now();
 }
 
 async function Base64(imagePath) {
@@ -188,7 +161,7 @@ async function getImage(downloadsDir) {
   }
 }
 
-async function geminiWorker(hasilFilePath) {
+async function groqWorker(hasilFilePath) {
   const hasilJson = path.join(hasilFilePath, "hasil.json");
   const hasil = [];
 
@@ -199,7 +172,7 @@ async function geminiWorker(hasilFilePath) {
     }
 
     const imagePath = imageQueue.shift();
-    const result = await processImagesWithGemini(imagePath);
+    const result = await processImagesWithGroq(imagePath);
 
     if (result) {
       hasil.push(result);
@@ -213,21 +186,28 @@ async function geminiWorker(hasilFilePath) {
     }
   }
 
-  console.log("Gemini Worker Selesai, hasil.json dibuat");
+  console.log("Groq Worker Selesai, hasil.json dibuat");
 }
 
-async function processImagesWithGemini(imagePath) {
+async function processImagesWithGroq(imagePath) {
   const maxRetries = 3000; // tambah max retries untuk 429 / error lain
   const retryDelay = 10000; // Delay 10detik
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      await waitGeminiRateLimit();
+      await waitGroqRateLimit();
       console.log(`\nMemproses ${imagePath} dengan... (attempt ${attempt})`);
       const base64Image = await Base64(imagePath);
-      const geminiResult = await Gemini.generateImage(base64Image);
+      const groqResult = await GroqAi.generateImage(base64Image);
+      
+      let parsedPrompt = groqResult;
+      try {
+        const parsed = JSON.parse(groqResult);
+        if (parsed.prompt) parsedPrompt = parsed.prompt;
+      } catch (e) {}
+
       console.log(`Selesai proses: ${imagePath}`);
-      return { filename: path.basename(imagePath), geminiResult };
+      return { filename: path.basename(imagePath), groqResult: groqResult, prompt: parsedPrompt };
     } catch (err) {
       const code = err?.status || err?.code || "";
       console.error(
@@ -256,53 +236,8 @@ async function processImagesWithGemini(imagePath) {
   return null;
 }
 
-// Fungsi untuk generate gambar dengan Whisk dari hasil Gemini
-async function generateImagesFromGeminiResults(numWorkers, outputDir) {
-  try {
-    console.log(
-      "\n Mulai generate gambar dengan Whisk berdasarkan hasil Gemini...\n",
-    );
-
-    // Baca hasil.json
-    const hasilData = await fs.promises.readFile(
-      path.join(outputDir, "hasil.json"),
-      "utf-8",
-    );
-    const hasil = JSON.parse(hasilData);
-
-    // Filter hasil yang gak ada error
-    const validResults = hasil.filter((item) => !item.error);
-
-    if (validResults.length === 0) {
-      console.log(" Tidak ada hasil valid untuk di-generate");
-      return;
-    }
-
-    console.log(
-      `Ditemukan ${validResults.length} hasil valid dari Gemini AI\n`,
-    );
-
-    // Extract prompts
-    const prompts = validResults.map((item) => {
-      let promptText = item.geminiResult;
-      if (typeof promptText === "string") {
-        try {
-          const parsed = JSON.parse(promptText);
-          promptText = parsed.prompt;
-        } catch (e) {
-          // gunakan langsung
-        }
-      }
-      return promptText;
-    });
-
-    // Run batch processing
-    await createImageWhiskBatch(prompts, numWorkers, outputDir);
-  } catch (err) {
-    console.error("Error in generateImagesFromBlablaResults:", err);
-    throw err;
-  }
-}
+// FlowGenerate dipanggil langsung di main/start
+// generateImagesFromGroqResults function removed
 
 export async function main() {
   const keyApp = await checkKeyApp();
@@ -353,30 +288,26 @@ export async function main() {
 
     console.log("Mulai scroll pelan-pelan...");
 
-
-    // const geminiPromise = geminiWorker(outputDir);
+    const groqPromise = groqWorker(outputDir);
     const scrollResult = await scrollAll(page, pageCustom, outputDir); //1 kali scroll fullPage
-    // setDownloaderFinished(true);
+    setDownloaderFinished(true);
 
     console.log("\n Menutup browser setelah download selesai...");
     await browser.close();
+
+    await groqPromise;
+
+    // // Testing hook: hentikan jika user memilih stop saat testing
+    //     await stopTesting('1', testingPilihan)
 
     console.log(
       `\n Gambar berhasil disimpan di folder: ${path.join(outputDir, "downloads")}`,
     );
 
-    if (scrollResult.successCount) {
-      console.log(`Total gambar valid yang diproses: ${scrollResult.successCount}`);
-
-      await GeminiClient(outputDir, 10); // proses Gemini untuk semua gambar yang valid
-
-      // Setelah GeminiClient selesai, jalankan generateImageFlow
-      const { generateImageFlow } = await import('../FlowGenerate/index.js');
-      await generateImageFlow(outputDir);
-    }
-
-    // // Generate gambar dengan Whisk
-    // await generateImagesFromGeminiResults(WhiskWorkersNum, outputDir); // jumlah worker bisa disesuaikan, misal 3 untuk proses paralel
+    // Generate gambar dengan FlowGenerate
+    console.log("\n Mulai generate gambar dengan FlowGenerate berdasarkan hasil Groq...\n");
+    await generateImageFlow(outputDir);
+    // await stopTesting('2', testingPilihan) // Testing hook: hentikan jika user memilih stop saat testing
 
     await sortingFile(outputDir);
 
@@ -393,5 +324,62 @@ export async function main() {
     }
   } finally {
     console.log("\n Browser sudah ditutup setelah download.");
+  }
+}
+
+export async function startGroqNFlowGenerate() {
+  try {
+    const pathSemuaGambarTanggal = await askGroqNFlowGenerate();
+
+    if (!pathSemuaGambarTanggal || pathSemuaGambarTanggal.length === 0) {
+      console.log("Tidak ada downloads Folder yang valid");
+      return;
+    }
+
+    if (!pathSemuaGambarTanggal) {
+      console.error("Path tidak valid, keluar dari aplikasi.");
+    }
+
+    for (const fileDownloads of pathSemuaGambarTanggal) {
+      console.log(`Memproses folder: ${fileDownloads}`);
+      const outputDir = path.dirname(fileDownloads);
+
+      setDownloaderFinished(false);
+
+      // Baca gambar dari folder downloads dan masukkan ke queue
+      const imageFiles = await getImage(fileDownloads);
+      console.log(`Ditemukan ${imageFiles.length} gambar di ${fileDownloads}`);
+
+      // Tambahkan gambar ke queue dengan full path
+      for (const imageFile of imageFiles) {
+        const fullImagePath = path.join(fileDownloads, imageFile);
+        imageQueue.push(fullImagePath);
+      }
+
+      const groqPromise = groqWorker(outputDir);
+
+      setDownloaderFinished(true);
+      await groqPromise;
+
+      // // Testing hook: hentikan jika user memilih stop saat testing
+      //     await stopTesting('1', testingPilihan)
+
+      console.log(
+        `\n Gambar berhasil disimpan di folder: ${path.join(outputDir, "downloads")}`,
+      );
+
+      // Generate gambar dengan FlowGenerate
+      console.log("\n Mulai generate gambar dengan FlowGenerate berdasarkan hasil Groq...\n");
+      await generateImageFlow(outputDir);
+
+      await sortingFile(outputDir);
+
+      console.log(`Selesai memproses folder: ${fileDownloads}\n`);
+    }
+  } catch (err) {
+    console.error("Error di startGeminiNWhisk:", err);
+  } finally {
+    console.log("Proses selesai, keluar dari aplikasi.");
+    process.exit(0);
   }
 }
