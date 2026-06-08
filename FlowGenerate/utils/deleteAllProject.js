@@ -11,6 +11,65 @@ async function deleteAllProject() {
         await deleteBrowser.init(profile);
 
         await deleteBrowser.page.goto('https://labs.google/fx/id/tools/flow', { waitUntil: 'networkidle' });
+
+        // Tangani popup awal (consent/marketing) jika muncul — gunakan teks, bukan class
+        try {
+          await deleteBrowser.page.waitForTimeout(1000);
+          const researchLabel = deleteBrowser.page.getByText('Saya ingin menerima undangan riset');
+          if (await researchLabel.count() > 0) {
+            console.log('Detect consent modal — mencoba cek opsi riset dan klik Berikutnya');
+            try {
+              await researchLabel.first().click().catch(() => {});
+              await deleteBrowser.page.waitForTimeout(300);
+
+              const nextBtn = deleteBrowser.page.getByRole('button', { name: /Berikutnya|Next|Continue/i }).first();
+              if (await nextBtn.count() > 0) {
+                await nextBtn.click().catch(() => {});
+                await deleteBrowser.page.waitForTimeout(800);
+              }
+            } catch (inner) {
+              console.warn('Gagal handle consent modal:', inner.message);
+            }
+          }
+        } catch (e) {
+          console.warn('No consent modal detected or error:', e.message);
+        }
+
+        // Tangani popup kebijakan privasi — deteksi via heading text dan scroll ancestor
+        try {
+          await deleteBrowser.page.waitForTimeout(500);
+          const policyHeading = deleteBrowser.page.getByRole('heading', { name: /Tinjau kebijakan privasi|Tinjau kebijakan/i });
+          if (await policyHeading.count() > 0) {
+            console.log('Detect privacy policy modal — scroll sampai Lanjutkan aktif');
+
+            const continueBtn = deleteBrowser.page.getByRole('button', { name: /Lanjutkan|Continue|Next/i }).first();
+
+            let attempts = 0;
+            while (await continueBtn.count() > 0 && await continueBtn.isDisabled() && attempts < 12) {
+              await deleteBrowser.page.evaluate((headingText) => {
+                const headings = Array.from(document.querySelectorAll('h1,h2,h3'));
+                const h = headings.find(e => e.textContent && e.textContent.includes(headingText));
+                if (!h) return;
+                let el = h.parentElement;
+                while (el && el !== document.body && el.scrollHeight <= el.clientHeight) el = el.parentElement;
+                if (el && el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
+              }, 'Tinjau kebijakan privasi');
+
+              await deleteBrowser.page.waitForTimeout(700);
+              attempts++;
+            }
+
+            if (await continueBtn.count() > 0 && !(await continueBtn.isDisabled())) {
+              await continueBtn.click().catch(() => {});
+              await deleteBrowser.page.waitForTimeout(500);
+            } else {
+              console.warn('Tombol Lanjutkan tidak aktif setelah scroll/fallback');
+            }
+          }
+        } catch (e) {
+          console.warn('No policy modal detected or error:', e.message);
+        }
+
         let scrollAttempts = 0;
         const maxScrollAttempts = 3; // Batas percobaan scroll
 

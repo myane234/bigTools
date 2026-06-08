@@ -113,12 +113,65 @@ export function attachFlowListener(page, saveDir = './Hasil') {
 export async function generate(page, profile, prompts, saveDir, expectedCount = 3, timeoutMs = 60000) {
     let successCount = 0;
     try {
+        // Tangani popup consent / privacy jika muncul sebelum membuat project baru
+        await handleInitialPopups(page).catch(err => console.warn('handleInitialPopups error:', err.message));
+
         await page.evaluate(() => {
             const btn = [...document.querySelectorAll('button')]
                 .find(b => b.textContent.includes('Project baru'));
             btn?.click();
         });
         console.log('Click berhasil');
+
+        // Tangani welcome slides jika muncul: klik "See what's new", lalu tekan Next sampai tombol Mulai muncul
+        try {
+            await page.waitForTimeout(800);
+
+            const seeWhatsNew = page.getByRole('button', { name: /See what'?s new|See what's new/i });
+            if (await seeWhatsNew.count() > 0) {
+                console.log('[Welcome] See what\'s new detected — clicking');
+                await seeWhatsNew.first().click().catch(() => {});
+                await page.waitForTimeout(600);
+            }
+
+            // Loop tekan Next sampai tombol Mulai/Start terlihat
+            const startBtnName = /Mulai|Start|Get started|Lanjutkan/i;
+            let attempts = 0;
+            while (attempts < 12) {
+                const startBtn = page.getByRole('button', { name: startBtnName }).first();
+                if (await startBtn.count() > 0 && !(await startBtn.isDisabled())) {
+                    console.log('[Welcome] Start button detected — clicking');
+                    await startBtn.click().catch(() => {});
+                    await page.waitForTimeout(700);
+                    break;
+                }
+
+                // cari tombol Next dengan atribut atau aria-label
+                const nextBtn = page.locator('button[aria-label="Next"], button[data-button="next"], button.nav-btn.next-btn').first();
+                if (await nextBtn.count() > 0) {
+                    console.log('[Welcome] Next button detected — clicking');
+                    await nextBtn.click().catch(() => {});
+                    await page.waitForTimeout(600);
+                    attempts++;
+                    continue;
+                }
+
+                // fallback: tombol dengan ikon arrow_forward
+                const arrowBtn = page.getByText('arrow_forward').first();
+                if (await arrowBtn.count() > 0) {
+                    console.log('[Welcome] Arrow forward detected — clicking');
+                    await arrowBtn.first().click().catch(() => {});
+                    await page.waitForTimeout(600);
+                    attempts++;
+                    continue;
+                }
+
+                // tidak ada tombol next/start — hentikan
+                break;
+            }
+        } catch (e) {
+            console.warn('[Welcome] error handling slides:', e.message);
+        }
 
         await delay(6000); // Tunggu 6 detik untuk memastikan UI sudah siap
 
@@ -185,5 +238,59 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
     } catch (err) {
         console.error('Error di generate:', err);
         return successCount;
+    }
+}
+
+async function handleInitialPopups(page) {
+    // small delay to let modal render
+    await page.waitForTimeout(800);
+
+    // Consent modal: detect by visible label text instead of auto-generated classes
+    const researchLabel = page.getByText('Saya ingin menerima undangan riset');
+    if (await researchLabel.count() > 0) {
+        console.log('[Popup] Consent modal detected — trying to select research and click Next');
+        try {
+            await researchLabel.first().click().catch(() => {});
+            await page.waitForTimeout(300);
+
+            const nextBtn = page.getByRole('button', { name: /Berikutnya|Next|Continue/i }).first();
+            if (await nextBtn.count() > 0) {
+                await nextBtn.click().catch(() => {});
+                await page.waitForTimeout(700);
+            }
+        } catch (e) {
+            console.warn('[Popup] Failed to handle consent modal:', e.message);
+        }
+    }
+
+    // Privacy policy modal: detect by heading text and scroll reachable ancestor
+    const policyHeading = page.getByRole('heading', { name: /Tinjau kebijakan privasi|Tinjau kebijakan/i });
+    if (await policyHeading.count() > 0) {
+        console.log('[Popup] Privacy policy modal detected — scrolling until Continue is enabled');
+        const continueBtn = page.getByRole('button', { name: /Lanjutkan|Continue|Next/i }).first();
+
+        // Scroll ancestor container of the heading until continue enabled or max attempts
+        let attempts = 0;
+        while (await continueBtn.count() > 0 && await continueBtn.isDisabled() && attempts < 15) {
+            await page.evaluate((headingText) => {
+                const headings = Array.from(document.querySelectorAll('h1,h2,h3'));
+                const h = headings.find(e => e.textContent && e.textContent.includes(headingText));
+                if (!h) return;
+                let el = h.parentElement;
+                // climb until find scrollable container
+                while (el && el !== document.body && el.scrollHeight <= el.clientHeight) el = el.parentElement;
+                if (el && el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
+            }, 'Tinjau kebijakan privasi');
+
+            await page.waitForTimeout(600);
+            attempts++;
+        }
+
+        if (await continueBtn.count() > 0 && !(await continueBtn.isDisabled())) {
+            await continueBtn.click().catch(() => {});
+            await page.waitForTimeout(500);
+        } else {
+            console.warn('[Popup] Continue button not enabled after scrolling');
+        }
     }
 }
