@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer-extra';
+import { chromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'fs/promises'
 import { generate } from './utils/automationGenerate.js';
@@ -6,37 +6,73 @@ import { generate } from './utils/automationGenerate.js';
 
 const profiles = await fs.readdir("D:\\chrome-profiles")
 
-puppeteer.use(StealthPlugin())
+chromium.use(StealthPlugin())
 console.log(profiles)
 
-class browser {
+export class browser {
     constructor() {
-        this.browser = null;
+        this.context = null;
         this.page = null;
     }
 
     async init(profile) {
-        this.browser = await puppeteer.launch({
-            headless: false,
-            userDataDir: `D:\\chrome-profiles\\${profile}`,
-            args: [
+        
+        this.context = await chromium.launchPersistentContext(
+            `D:\\chrome-profiles\\${profile}`, 
+            {
+                executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+                headless: false,
+                ignoreDefaultArgs: [
+                '--enable-automation',
+                '--disable-extensions' // Biarkan ekstensi bawaan Chrome asli tetap jalan agar terlihat manusiawi,
+                ],
+                args: [
+                '--disable-blink-features=AutomationControlled', // Kunci utama menyembunyikan navigator.webdriver
+                '--start-maximized',
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--start-maximized'
-            ],
-            defaultViewport: null
-        });
+                '--disable-infobars', // Menghilangkan baris "Chrome sedang dikendalikan..."
+                '--window-position=0,0',
+                '--ignore-certificate-errors'
+                ],
+                viewport: null // Pengganti defaultViewport: null di persistent context
+            }
+            
+        );
 
-        const pages = await this.browser.pages();
-        this.page = pages.length > 0 ? pages[0] : await this.browser.newPage();
+        // Di persistent context, kita ambil page pertama langsung dari context
+        const pages = this.context.pages();
+        this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
+
+        // Provide a Puppeteer-compatible `page.browser()` shim for libraries
+        // (like ghost-cursor) that expect Puppeteer's API.
+        try {
+            this.page.browser = () => this.context.browser();
+        } catch (e) {
+            // ignore if not available
+        }
+
+        await this.context.addInitScript(() => {
+        // Hapus penanda webdriver
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => undefined,
+        });
+        
+        // Buat mock objek chrome bawaan browser asli agar Google tidak curiga
+        window.chrome = {
+            runtime: {},
+            loadTimes: function() {},
+            csi: function() {}
+        };
+    });
     }
 
     async close() {
-        if (this.browser) {
-            // Berikan jeda sebentar sebelum close agar browser sempat nulis data ke disk
+        if (this.context) {
             await new Promise(r => setTimeout(r, 1000));
-            await this.browser.close();
+            await this.context.close(); // Menutup context otomatis menutup seluruh browser
+            this.context = null;
+            this.page = null;
         }
     }
 }
@@ -169,7 +205,7 @@ async function scrape(profile, batchPrompts, saveDir, expectedCount, timeoutMs) 
 
         await browserI.page.goto(
             "https://labs.google/fx/id/tools/flow",
-            { waitUntil: 'networkidle2' }
+            { waitUntil: 'networkidle' }
         );
 
         const successCount = await generate(browserI.page, profile, batchPrompts, saveDir, expectedCount, timeoutMs);
@@ -189,3 +225,26 @@ async function scrape(profile, batchPrompts, saveDir, expectedCount, timeoutMs) 
         }
     }
 }
+
+// async function test() {
+//     const browserI = new browser();
+//     console.log('Mulai test generateImageFlow...');
+
+//     for(const profile of profiles) {
+//         console.log(`Profil ke : ${profile}`);
+//         await browserI.init(profile);
+//     await browserI.page.goto(
+//         "https://www.browserscan.net/",
+//         { waitUntil: 'networkidle' }
+//     );
+//     await delay(2000) 
+
+//     await browserI.page.screenshot({ path: `test-${profile}.png` });
+//     }
+//     console.log('Selesai test generateImageFlow.');
+    
+    
+
+// }
+
+// test();
