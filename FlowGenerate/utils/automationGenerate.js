@@ -237,6 +237,7 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
         return successCount;
     } catch (err) {
         console.error('Error di generate:', err);
+        await page.screenshot({ path: `${testingGambarPath}/${profile}_error.png` });
         return successCount;
     }
 }
