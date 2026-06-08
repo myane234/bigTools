@@ -383,3 +383,56 @@ export async function startGroqNFlowGenerate() {
     process.exit(0);
   }
 }
+
+export async function GenerateJustFlow(pathHasilJson) {
+  try {
+    if (!pathHasilJson || pathHasilJson.length === 0) {
+      console.log("Tidak ada hasil.json yang valid");
+      return;
+    }
+
+    console.log(`Memproses file/folder: ${pathHasilJson}`);
+
+    // Determine whether the provided path is a folder containing hasil.json
+    // or a direct path to a hasil.json file. Normalize to outputDir.
+    let outputDir = pathHasilJson;
+
+    try {
+      if (fs.existsSync(pathHasilJson)) {
+        const stat = fs.statSync(pathHasilJson);
+        if (stat.isFile()) {
+          // If user passed the file path, use its directory
+          outputDir = path.dirname(pathHasilJson);
+        } else if (stat.isDirectory()) {
+          outputDir = pathHasilJson;
+        }
+      } else {
+        // If the exact path doesn't exist, but it's likely a folder,
+        // try checking for hasil.json inside it. Otherwise, if it looks
+        // like a json file, use its dirname.
+        const possibleHasil = path.join(pathHasilJson, "hasil.json");
+        if (fs.existsSync(possibleHasil)) {
+          outputDir = pathHasilJson;
+        } else if (pathHasilJson.toLowerCase().endsWith('.json')) {
+          outputDir = path.dirname(pathHasilJson);
+        }
+      }
+    } catch (e) {
+      console.error('Error checking path:', e.message);
+      return;
+    }
+
+    const hasilPath = path.join(outputDir, 'hasil.json');
+    if (!fs.existsSync(hasilPath)) {
+      console.error(`❌ Hasil.json tidak ditemukan di ${hasilPath}`);
+      return;
+    }
+
+    // Call generateImageFlow with the directory that contains hasil.json
+    await generateImageFlow(outputDir);
+
+    console.log(`Selesai memproses: ${hasilPath}\n`);
+  } catch (err) {
+    console.error("Error di GenerateJustFlow:", err);
+  }
+}

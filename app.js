@@ -2,7 +2,7 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import { spawn } from "child_process";
 import { env } from "./automation_server/utils/CliAsk/inputEnv.js";
-import { main, startGroqNFlowGenerate } from "./automation_server/index.js";
+import { main, startGroqNFlowGenerate, GenerateJustFlow } from "./automation_server/index.js";
 import { setPrompt } from "./automation_server/utils/groq/getPromptvalue.js";
 import GroqAi from "./automation_server/utils/groq/groqAi.js";
 import { start } from "repl";
@@ -55,6 +55,25 @@ export async function promptGroqSelector() {
   return promptMap[choice];
 }
 
+async function askGeneratejustFlow() {
+  console.log(chalk.yellow("\n⚠️  Generate Just Flow akan menghasilkan flow tanpa gambar. Pastikan untuk menggunakan prompt yang sesuai untuk hasil terbaik.\n"));
+  const PathJson = await inquirer.prompt([
+    {
+      type: "input",
+      name: "path",
+      message: "Masukkan path folder output yang berisi hasil.json (contoh: ./output):",
+      validate: function (input) {
+        if (!input.trim()) {
+          return "Path tidak boleh kosong!";
+        }
+        return true;
+      },
+    },
+  ]);
+
+  return PathJson.path;
+}
+
 async function mainMenu() {
   console.clear();
   checkEnv();
@@ -68,6 +87,7 @@ async function mainMenu() {
   console.log("[2] Start Automation");
   console.log("[3] Start Groq NFlowGenerate");
   console.log("[4] Test API Keys");
+  console.log("[5] Generate Just Flow");
   console.log("[0] Exit\n");
   const { choice } = await inquirer.prompt([
     {
@@ -79,6 +99,7 @@ async function mainMenu() {
         { name: "Start Automation", value: "2" },
         { name: "Start Groq NFlowGenerate", value: "3" },
         { name: "Test API Keys", value: "4" },
+        { name: "Generate Just Flow", value: "5" },
         { name: "Exit", value: "0" },
       ],
     },
@@ -100,6 +121,10 @@ async function mainMenu() {
       break;
     case "4":
       await GroqAi.testApi();
+      break;
+    case "5":
+        const pathHasilJson = await askGeneratejustFlow();
+      await GenerateJustFlow(pathHasilJson);
       break;
     case "0":
       console.log(chalk.red("\nBye bro 👋\n"));
