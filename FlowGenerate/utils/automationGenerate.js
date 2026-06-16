@@ -123,54 +123,50 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
         });
         console.log('Click berhasil');
 
-        // Tangani welcome slides jika muncul: klik "See what's new", lalu tekan Next sampai tombol Mulai muncul
+        await page.keyboard.press('Escape'); // Tutup modal yang mungkin masih terbuka
+
+        // Jika ada tombol dengan atribut aria-pressed, pastikan yang true menjadi false.
+        // Lebih robust: coba click({force:true}), fallback ke el.click() via evaluate,
+        // dan terakhir setAttribute('aria-pressed','false') jika masih true.
         try {
-            await page.waitForTimeout(800);
+            const pressedBtns = page.locator('button[aria-pressed]');
+            const total = await pressedBtns.count();
+            for (let i = 0; i < total; i++) {
+                const btn = pressedBtns.nth(i);
+                const val = await btn.getAttribute('aria-pressed');
+                if (val === 'true') {
+                    console.log('Detected button[aria-pressed="true"] — attempting to toggle off');
+                    try {
+                        await btn.click({ force: true });
+                    } catch (clickErr) {
+                        try {
+                            const handle = await btn.elementHandle();
+                            if (handle) await page.evaluate((el) => el.click(), handle);
+                        } catch (evalErr) {
+                            console.warn('Fallback click evaluate failed:', evalErr.message);
+                        }
+                    }
 
-            const seeWhatsNew = page.getByRole('button', { name: /See what'?s new|See what's new/i });
-            if (await seeWhatsNew.count() > 0) {
-                console.log('[Welcome] See what\'s new detected — clicking');
-                await seeWhatsNew.first().click().catch(() => {});
-                await page.waitForTimeout(600);
-            }
+                    await page.waitForTimeout(300);
 
-            // Loop tekan Next sampai tombol Mulai/Start terlihat
-            const startBtnName = /Mulai|Start|Get started|Lanjutkan/i;
-            let attempts = 0;
-            while (attempts < 12) {
-                const startBtn = page.getByRole('button', { name: startBtnName }).first();
-                if (await startBtn.count() > 0 && !(await startBtn.isDisabled())) {
-                    console.log('[Welcome] Start button detected — clicking');
-                    await startBtn.click().catch(() => {});
-                    await page.waitForTimeout(700);
+                    // Verifikasi, jika masih true maka set attribute langsung
+                    const newVal = await btn.getAttribute('aria-pressed');
+                    if (newVal === 'true') {
+                        try {
+                            const handle = await btn.elementHandle();
+                            if (handle) await page.evaluate((el) => el.setAttribute('aria-pressed', 'false'), handle);
+                            console.log('Forced aria-pressed to false via JS');
+                        } catch (setErr) {
+                            console.warn('Failed to force aria-pressed to false:', setErr.message);
+                        }
+                    }
+
+                    // Setelah meng-handle satu yang true, stop (sesuai kebutuhan bisa diubah untuk toggle semua)
                     break;
                 }
-
-                // cari tombol Next dengan atribut atau aria-label
-                const nextBtn = page.locator('button[aria-label="Next"], button[data-button="next"], button.nav-btn.next-btn').first();
-                if (await nextBtn.count() > 0) {
-                    console.log('[Welcome] Next button detected — clicking');
-                    await nextBtn.click().catch(() => {});
-                    await page.waitForTimeout(600);
-                    attempts++;
-                    continue;
-                }
-
-                // fallback: tombol dengan ikon arrow_forward
-                const arrowBtn = page.getByText('arrow_forward').first();
-                if (await arrowBtn.count() > 0) {
-                    console.log('[Welcome] Arrow forward detected — clicking');
-                    await arrowBtn.first().click().catch(() => {});
-                    await page.waitForTimeout(600);
-                    attempts++;
-                    continue;
-                }
-
-                // tidak ada tombol next/start — hentikan
-                break;
             }
         } catch (e) {
-            console.warn('[Welcome] error handling slides:', e.message);
+            console.warn('Error checking/toggling aria-pressed button:', e.message);
         }
 
         await delay(6000); // Tunggu 6 detik untuk memastikan UI sudah siap
