@@ -10,7 +10,7 @@ const testingGambarPath = './GambarTesting';
 const hasilPath = './Hasil';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const flowImageUrlMarker = 'flow-content.google/image';
+const flowApiMarker = '/fx/api/trpc/media.getMediaUrlRedirect';
 
 function checkDir(dirPath) {
     try {
@@ -29,74 +29,71 @@ export function attachFlowListener(page, saveDir = './Hasil') {
     const seenUrls = new Set();
     let savedCount = 0;
     const savedFiles = [];
-    const callbacks = [];
 
-    const listener = async (response) => {
-        const url = response.url();
-        if (!url.includes(flowImageUrlMarker) || seenUrls.has(url)) return;
-        seenUrls.add(url);
+    const waitForImages = async (targetCount, timeoutMs = 60000) => {
+        let currentPromptSaved = 0;
+        const startTime = Date.now();
 
-        const contentType = response.headers()['content-type'] || '';
-        if (!contentType.startsWith('image/')) return;
+        while (Date.now() - startTime < timeoutMs && currentPromptSaved < targetCount) {
+            // Scroll ke bawah
+            await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+            await delay(2000);
 
-        try {
-            checkDir(saveDir);
+            // Cari element gambar
+            const imgLocators = await page.$$(`img[src*="${flowApiMarker}"]`);
+            for (const img of imgLocators) {
+                const src = await page.evaluate(el => el.src, img);
+                if (src && !seenUrls.has(src)) {
+                    seenUrls.add(src);
 
-            const mediaId = path.basename(new URL(url).pathname);
-            const ext = contentType.split('/')[1]?.split(';')[0] || 'png';
-            const filePath = path.join(saveDir, `${mediaId}.${ext}`);
+                    try {
+                        const base64 = await page.evaluate(async (imgSrc) => {
+                            const res = await fetch(imgSrc);
+                            const blob = await res.blob();
+                            return new Promise((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result);
+                                reader.readAsDataURL(blob);
+                            });
+                        }, src);
 
-            const buffer = await response.body();
-            fs.writeFileSync(filePath, buffer);
-            savedCount += 1;
-            savedFiles.push(filePath);
-            console.log(`[Flow] ✅ Tersimpan: ${filePath}`);
-            callbacks.forEach((cb) => cb(savedCount));
-        } catch (err) {
-            console.error(`[Flow] ❌ Gagal simpan:`, err.message);
-        }
-    };
+                        if (base64) {
+                            const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
+                            const buffer = Buffer.from(base64Data, 'base64');
 
-    page.on('response', listener);
+                            const urlObj = new URL(src);
+                            const mediaId = urlObj.searchParams.get('name') || Date.now().toString();
 
-    const stop = () => {
-        page.off('response', listener);
-    };
+                            checkDir(saveDir);
+                            const filePath = path.join(saveDir, `${mediaId}.png`);
+                            fs.writeFileSync(filePath, buffer);
 
-    const waitForImages = (targetCount, timeoutMs = 60000) => {
-        return new Promise((resolve) => {
-            if (targetCount <= 0) {
-                stop();
-                return resolve({ savedCount, savedFiles });
-            }
+                            savedCount++;
+                            currentPromptSaved++;
+                            savedFiles.push(filePath);
+                            console.log(`[Flow] ✅ Tersimpan: ${filePath}`);
 
-            let timeout = null;
-            if (timeoutMs > 0) {
-                timeout = setTimeout(() => {
-                    stop();
-                    resolve({ savedCount, savedFiles });
-                }, timeoutMs);
-            }
-
-            const onSaved = (count) => {
-                if (count >= targetCount) {
-                    if (timeout) clearTimeout(timeout);
-                    stop();
-                    resolve({ savedCount, savedFiles });
+                            if (currentPromptSaved >= targetCount) break;
+                        }
+                    } catch (err) {
+                        console.error(`[Flow] ❌ Gagal download image dari DOM:`, err.message);
+                    }
                 }
-            };
-
-            callbacks.push(onSaved);
-
-            if (savedCount >= targetCount) {
-                if (timeout) clearTimeout(timeout);
-                stop();
-                resolve({ savedCount, savedFiles });
             }
-        });
+
+            if (currentPromptSaved >= targetCount) break;
+
+            // Scroll ke atas
+            await page.evaluate(() => window.scrollBy(0, -window.innerHeight));
+            await delay(2000);
+        }
+
+        return { savedCount: currentPromptSaved, savedFiles };
     };
 
-    console.log('[Flow] 🟢 Listener aktif');
+    const stop = () => { };
+
+    console.log('[Flow] 🟢 DOM Scanner siap');
     return { waitForImages, stop, getSavedCount: () => savedCount };
 }
 
@@ -129,44 +126,54 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
         // Lebih robust: coba click({force:true}), fallback ke el.click() via evaluate,
         // dan terakhir setAttribute('aria-pressed','false') jika masih true.
         try {
-            const pressedBtns = page.locator('button[aria-pressed]');
-            const total = await pressedBtns.count();
-            for (let i = 0; i < total; i++) {
-                const btn = pressedBtns.nth(i);
-                const val = await btn.getAttribute('aria-pressed');
-                if (val === 'true') {
-                    console.log('Detected button[aria-pressed="true"] — attempting to toggle off');
+            // Robust handling: fix elements with aria-pressed or aria-disabled set to true.
+            const selectors = ['[aria-pressed="true"]', '[aria-disabled="true"]'];
+            for (const sel of selectors) {
+                const locator = page.locator(sel);
+                const count = await locator.count();
+                for (let i = 0; i < count; i++) {
+                    const el = locator.nth(i);
+                    const tag = await el.evaluate(node => node.tagName);
+                    console.log(`Detected ${sel} on <${tag}> — attempting to toggle/enable`);
+
+                    // Try to click first (force), then fallback to dispatching a click event.
+                    let clicked = false;
                     try {
-                        await btn.click({ force: true });
+                        await el.click({ force: true });
+                        clicked = true;
                     } catch (clickErr) {
                         try {
-                            const handle = await btn.elementHandle();
-                            if (handle) await page.evaluate((el) => el.click(), handle);
-                        } catch (evalErr) {
-                            console.warn('Fallback click evaluate failed:', evalErr.message);
+                            const handle = await el.elementHandle();
+                            if (handle) {
+                                await page.evaluate((node) => {
+                                    const ev = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true });
+                                    node.dispatchEvent(ev);
+                                }, handle);
+                                clicked = true;
+                            }
+                        } catch (evErr) {
+                            console.warn('Fallback dispatch click failed:', evErr.message);
                         }
                     }
 
                     await page.waitForTimeout(300);
 
-                    // Verifikasi, jika masih true maka set attribute langsung
-                    const newVal = await btn.getAttribute('aria-pressed');
-                    if (newVal === 'true') {
+                    // If still in the unwanted state, set attribute directly as last resort.
+                    const attrName = sel.includes('pressed') ? 'aria-pressed' : 'aria-disabled';
+                    const current = await el.getAttribute(attrName);
+                    if (current === 'true') {
                         try {
-                            const handle = await btn.elementHandle();
-                            if (handle) await page.evaluate((el) => el.setAttribute('aria-pressed', 'false'), handle);
-                            console.log('Forced aria-pressed to false via JS');
+                            const handle = await el.elementHandle();
+                            if (handle) await page.evaluate((node, name) => node.setAttribute(name, 'false'), handle, attrName);
+                            console.log(`Forced ${attrName} to false via JS`);
                         } catch (setErr) {
-                            console.warn('Failed to force aria-pressed to false:', setErr.message);
+                            console.warn(`Failed to force ${attrName} to false:`, setErr.message);
                         }
                     }
-
-                    // Setelah meng-handle satu yang true, stop (sesuai kebutuhan bisa diubah untuk toggle semua)
-                    break;
                 }
             }
         } catch (e) {
-            console.warn('Error checking/toggling aria-pressed button:', e.message);
+            console.warn('Error toggling stateful buttons:', e.message);
         }
 
         await delay(6000); // Tunggu 6 detik untuk memastikan UI sudah siap
@@ -213,19 +220,10 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
 
             successCount++;
 
-            // Jika ada prompt berikutnya, scroll dan tunggu sebentar
+            // Jika ada prompt berikutnya, tunggu 1 menit
             if (i < prompts.length - 1) {
-                console.log('⏳ Scroll down untuk melihat hasil, tunggu 3 detik...');
-                await page.evaluate(() => {
-                    window.scrollBy(0, window.innerHeight);
-                });
-                await delay(3000);
-
-                console.log('↩️ Scroll kembali ke atas untuk prompt berikutnya...');
-                await page.evaluate(() => {
-                    window.scrollBy(0, -window.innerHeight);
-                });
-                await delay(2000);
+                console.log('⏳ Jeda 1 menit sebelum prompt berikutnya...');
+                await delay(60000);
             }
         }
 
@@ -247,12 +245,12 @@ async function handleInitialPopups(page) {
     if (await researchLabel.count() > 0) {
         console.log('[Popup] Consent modal detected — trying to select research and click Next');
         try {
-            await researchLabel.first().click().catch(() => {});
+            await researchLabel.first().click().catch(() => { });
             await page.waitForTimeout(300);
 
             const nextBtn = page.getByRole('button', { name: /Berikutnya|Next|Continue/i }).first();
             if (await nextBtn.count() > 0) {
-                await nextBtn.click().catch(() => {});
+                await nextBtn.click().catch(() => { });
                 await page.waitForTimeout(700);
             }
         } catch (e) {
@@ -284,7 +282,7 @@ async function handleInitialPopups(page) {
         }
 
         if (await continueBtn.count() > 0 && !(await continueBtn.isDisabled())) {
-            await continueBtn.click().catch(() => {});
+            await continueBtn.click().catch(() => { });
             await page.waitForTimeout(500);
         } else {
             console.warn('[Popup] Continue button not enabled after scrolling');
