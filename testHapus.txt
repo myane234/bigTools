@@ -1,0 +1,18 @@
+fetch("https://labs.google/fx/api/trpc/flow.projectInitialData?input=%7B%22json%22%3A%7B%22projectId%22%3A%222b2b7250-5119-4b5a-966a-673aa315753c%22%7D%7D", {
+  "headers": {
+    "accept": "*/*",
+    "accept-language": "en-US,en;q=0.9,id;q=0.8",
+    "content-type": "application/json",
+    "priority": "u=1, i",
+    "sec-ch-ua": "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"Windows\"",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "cookie": "__Host-next-auth.csrf-token=3cf4a1b021b999c83d1f4a1e84c753b0c23d87146e5c66a190347871ad6436c2%7Cc0fc7955b412494aa682b03f96f18d2accdd9266cc5c0b080d6fa90bc1f96051; __Secure-next-auth.callback-url=https%3A%2F%2Flabs.google%2Ffx%2Ftools%2Fflow; email=flytothemoonkawaii%40gmail.com; EMAIL=%22flytothemoonkawaii%40gmail.com%22; __Secure-next-auth.session-token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..xVnYVYvuywTr3y7P.VwJUZnkBizSutVyyxEb1lTRJ2HTlvsL2Of-9fXAu18LkzyUkMqmWfiaRdXOR8QlKhhZbymoQ8Olqx8iniPA9gZpp-pSsUU3wqUubcUbvyNlHxvWPdxdskZE2FM_IgyaNgd-ynWCHCQSib88NfmyBfr-rO781wxu3dlejQyO7GdPoBCExUyK_TuGvK9Xq7qNxW4E043sl4VcQr1evHcLYtjLJrGhTiyxI9cEcvJ247OIlrhN8fjYmkAq-7HzAeKUJPuMy8SY0BFpwaUmQJlFCqUbpH528EaiPrK3QqJIswT1SFBMROmSrDWjNxyOrHbE97dj0Y5tQrAezu3-MBPncaRT-0Pen7HpGaYofHt-jFNrUC7wmg5z5OlTAhQvrh6OslXAUxZc65V6CL8-KyomYVLKWXldnJpFkBp5IpJZeW18pgT0_WQ87zafIc-_whYfe56VovZJnWxbg1iOPVYxIxDLAJuiHAWGuMW0S5yVg4hIplSMZOTCxnsPqk27XGeXnPQ6PMwXzx-1oAhJ-LjXIb1bT7zhtS8pzE7Q7e5qW4ZkrI2il5Mnk7gSZLvFN6drcCU-kJUkaCSVQGoGpeq2kGO2VYWfv3AQlimEaeJJo_IuaBxkqkkHYrKn_NE45FfEtYk443hTIRuG1tPF0FwG7KnMQNx0atjL_Bh-5xuMoIk9yfvGk6voBfOFrF5b97xWotgcokAx6SpYOsUbb04bFEnaC6XkIOfWcXTCBdoIVbCKpa8xXpPgjQqiFj9XMRhTvrBgly0CXuExvlCVE-5n_VbQ5-SV1HYphi8T1ifbJ9-zOMNoY6XlC9ihuV9UwVEvk7SzC0N2OXUoaddikocQZ_hTIn3xQ1rk6s9wb2JM1jnxanbJeiBI9pd7A6fGeJHs2PRBrFVg9qi88gwhQTfneFyASqz1vXi4zyStswKcIJUX4ppUOEtJt5JmGLA6phaHUaS5wlJS46rW8uuBJT2K4_p1Ut6SgJvjK5jBL.IMyplikdfj1WAoOAkkYDOw",
+    "Referer": "https://labs.google/fx/tools/flow/project/2b2b7250-5119-4b5a-966a-673aa315753c"
+  },
+  "body": null,
+  "method": "GET"
+});

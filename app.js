@@ -2,10 +2,15 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import { spawn } from "child_process";
 import { env } from "./automation_server/utils/CliAsk/inputEnv.js";
-import { main, startGroqNFlowGenerate, GenerateJustFlow } from "./automation_server/index.js";
+import {
+  main,
+  startGroqNFlowGenerate,
+  GenerateJustFlow,
+} from "./automation_server/index.js";
 import { setPrompt } from "./automation_server/utils/groq/getPromptvalue.js";
 import GroqAi from "./automation_server/utils/groq/groqAi.js";
 import { start } from "repl";
+import { openProfiles } from "./FlowGenerate/index.js";
 
 const promptMap = {
   1: `
@@ -56,12 +61,17 @@ export async function promptGroqSelector() {
 }
 
 async function askGeneratejustFlow() {
-  console.log(chalk.yellow("\n⚠️  Generate Just Flow akan menghasilkan flow tanpa gambar. Pastikan untuk menggunakan prompt yang sesuai untuk hasil terbaik.\n"));
+  console.log(
+    chalk.yellow(
+      "\n⚠️  Generate Just Flow akan menghasilkan flow tanpa gambar. Pastikan untuk menggunakan prompt yang sesuai untuk hasil terbaik.\n",
+    ),
+  );
   const PathJson = await inquirer.prompt([
     {
       type: "input",
       name: "path",
-      message: "Masukkan path folder output yang berisi hasil.json (contoh: ./output):",
+      message:
+        "Masukkan path folder output yang berisi hasil.json (contoh: ./output):",
       validate: function (input) {
         if (!input.trim()) {
           return "Path tidak boleh kosong!";
@@ -123,8 +133,11 @@ async function mainMenu() {
       await GroqAi.testApi();
       break;
     case "5":
-        const pathHasilJson = await askGeneratejustFlow();
+      const pathHasilJson = await askGeneratejustFlow();
       await GenerateJustFlow(pathHasilJson);
+      break;
+    case "6":
+      await openProfiles();
       break;
     case "0":
       console.log(chalk.red("\nBye bro 👋\n"));
@@ -152,9 +165,7 @@ function checkEnv() {
 
   if (!groqKeys?.trim()) {
     console.log(chalk.red("\nENV belum lengkap!"));
-    console.log(
-      chalk.red(`Input API terlebih dahulu melalui menu [1]`),
-    );
+    console.log(chalk.red(`Input API terlebih dahulu melalui menu [1]`));
     return false;
   }
 }
