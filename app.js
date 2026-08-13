@@ -161,7 +161,7 @@ async function pause() {
 }
 
 function checkEnv() {
-  const groqKeys = process.env.GROQ_API_KEYS;
+  const groqKeys = process.env.API_KEY;
 
   if (!groqKeys?.trim()) {
     console.log(chalk.red("\nENV belum lengkap!"));
