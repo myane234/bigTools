@@ -62,6 +62,33 @@ Do not include any other text. Output ONLY the JSON object. Avoid making it iden
 //   return promptMap[choice];
 // }
 
+const APP_PASSWORD = "faruqganteng";
+
+async function authenticate() {
+  console.clear();
+  console.log(chalk.cyan.bold(`\n=============================`));
+  console.log(chalk.cyan.bold(`   SECURITY AUTHENTICATION   `));
+  console.log(chalk.cyan.bold(`=============================\n`));
+
+  const { password } = await inquirer.prompt([
+    {
+      type: "password",
+      name: "password",
+      message: "Masukkan Password CLI:",
+      mask: "*",
+    },
+  ]);
+
+  if (password === APP_PASSWORD) {
+    console.log(chalk.green("\nAccess Granted! Membuka menu...\n"));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    return true;
+  } else {
+    console.log(chalk.red("\nPassword salah! Akses ditolak.\n"));
+    process.exit(1);
+  }
+}
+
 async function askGeneratejustFlow() {
   console.log(
     chalk.yellow(
@@ -188,4 +215,9 @@ function runScript(command, args = []) {
   });
 }
 
-mainMenu();
+async function init() {
+  await authenticate();
+  await mainMenu();
+}
+
+init();

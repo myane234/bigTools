@@ -199,7 +199,7 @@ async function processImagesWithGroq(imagePath) {
       console.log(`\nMemproses ${imagePath} dengan... (attempt ${attempt})`);
       const base64Image = await Base64(imagePath);
       const groqResult = await GroqAi.generateImage(base64Image);
-      
+
       let parsedPrompt = groqResult;
       try {
         const parsed = JSON.parse(groqResult);
@@ -207,7 +207,11 @@ async function processImagesWithGroq(imagePath) {
       } catch (e) {}
 
       console.log(`Selesai proses: ${imagePath}`);
-      return { filename: path.basename(imagePath), groqResult: groqResult, prompt: parsedPrompt };
+      return {
+        filename: path.basename(imagePath),
+        groqResult: groqResult,
+        prompt: parsedPrompt,
+      };
     } catch (err) {
       const code = err?.status || err?.code || "";
       console.error(
@@ -305,7 +309,9 @@ export async function main() {
     );
 
     // Generate gambar dengan FlowGenerate
-    console.log("\n Mulai generate gambar dengan FlowGenerate berdasarkan hasil Groq...\n");
+    console.log(
+      "\n Mulai generate gambar dengan FlowGenerate berdasarkan hasil Groq...\n",
+    );
     await generateImageFlow(outputDir);
     // await stopTesting('2', testingPilihan) // Testing hook: hentikan jika user memilih stop saat testing
 
@@ -369,7 +375,9 @@ export async function startGroqNFlowGenerate() {
       );
 
       // Generate gambar dengan FlowGenerate
-      console.log("\n Mulai generate gambar dengan FlowGenerate berdasarkan hasil Groq...\n");
+      console.log(
+        "\n Mulai generate gambar dengan FlowGenerate berdasarkan hasil Groq...\n",
+      );
       await generateImageFlow(outputDir);
 
       await sortingFile(outputDir);
@@ -413,16 +421,16 @@ export async function GenerateJustFlow(pathHasilJson) {
         const possibleHasil = path.join(pathHasilJson, "hasil.json");
         if (fs.existsSync(possibleHasil)) {
           outputDir = pathHasilJson;
-        } else if (pathHasilJson.toLowerCase().endsWith('.json')) {
+        } else if (pathHasilJson.toLowerCase().endsWith(".json")) {
           outputDir = path.dirname(pathHasilJson);
         }
       }
     } catch (e) {
-      console.error('Error checking path:', e.message);
+      console.error("Error checking path:", e.message);
       return;
     }
 
-    const hasilPath = path.join(outputDir, 'hasil.json');
+    const hasilPath = path.join(outputDir, "hasil.json");
     if (!fs.existsSync(hasilPath)) {
       console.error(`❌ Hasil.json tidak ditemukan di ${hasilPath}`);
       return;
