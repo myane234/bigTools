@@ -11,6 +11,8 @@ import { setPrompt } from "./automation_server/utils/groq/getPromptvalue.js";
 import GroqAi from "./automation_server/utils/groq/groqAi.js";
 import { start } from "repl";
 import { openProfiles } from "./FlowGenerate/index.js";
+import { CrudPrompt, promptGroqSelector } from "./utils/prompt.js";
+import { manageProfiles } from "./utils/BuatChrome.js";
 
 const promptMap = {
   1: `
@@ -40,25 +42,25 @@ Example output:
 Do not include any other text. Output ONLY the JSON object. Avoid making it identical to the original image; keep similarity around 80% while creatively reimagining the subject.`,
 };
 
-export async function promptGroqSelector() {
-  console.log(`
-        1.Normal prompt
-        2.Force Siluet
-        `);
-  const { choice } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "choice",
-      message: "Pilih prompt:",
-      choices: [
-        { name: "Normal", value: "1" },
-        { name: "Force Silhouette", value: "2" },
-      ],
-    },
-  ]);
+// export async function promptGroqSelector() {
+//   console.log(`
+//         1.Normal prompt
+//         2.Force Siluet
+//         `);
+//   const { choice } = await inquirer.prompt([
+//     {
+//       type: "list",
+//       name: "choice",
+//       message: "Pilih prompt:",
+//       choices: [
+//         { name: "Normal", value: "1" },
+//         { name: "Force Silhouette", value: "2" },
+//       ],
+//     },
+//   ]);
 
-  return promptMap[choice];
-}
+//   return promptMap[choice];
+// }
 
 async function askGeneratejustFlow() {
   console.log(
@@ -98,6 +100,8 @@ async function mainMenu() {
   console.log("[3] Start Groq NFlowGenerate");
   console.log("[4] Test API Keys");
   console.log("[5] Generate Just Flow");
+  console.log("[7] Edit isi Prompt");
+  console.log("[8] Manajemen Chrome profiles");
   console.log("[0] Exit\n");
   const { choice } = await inquirer.prompt([
     {
@@ -138,6 +142,12 @@ async function mainMenu() {
       break;
     case "6":
       await openProfiles();
+      break;
+    case "7":
+      await CrudPrompt();
+      break;
+    case "8":
+      await manageProfiles();
       break;
     case "0":
       console.log(chalk.red("\nBye bro 👋\n"));
