@@ -1,0 +1,43 @@
+name: Obfuscate and Zip Project
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  obfuscate-and-zip:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Download kode dari repositori
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Node.js untuk jalankan obfuscator
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Step 3: Install javascript-obfuscator CLI global
+      - name: Install Obfuscator
+        run: npm install -g javascript-obfuscator
+
+      # Step 4: Acak kode JavaScript/Node.js di folder project
+      - name: Obfuscate JavaScript files
+        run: |
+          javascript-obfuscator ./ --output ./dist --compact true --self-defending true
+
+      # Step 5: Kompres folder yang kodenya sudah diacak menjadi ZIP
+      - name: Create Zip Archive
+        run: |
+          cd dist
+          zip -r ../project-obfuscated.zip .
+
+      # Step 6: Unggah file ZIP ter-obfuscate ke GitHub Artifacts
+      - name: Upload Zip Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-obfuscated-zip
+          path: project-obfuscated.zip
