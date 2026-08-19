@@ -1,24 +1,34 @@
-import inquirer from "inquirer";
 import fs from "fs";
 import path from "path";
+import readline from "readline/promises";
+import { stdin as input, stdout as output } from "process";
 import { main } from "./readAllOfImage.js";
 import { candidatePaths } from "./readAllOfImage.js";
 
 export async function ask(message, type = "input", extra = {}) {
-  try {
-    const answer = await inquirer.prompt([
-      {
-        type,
-        name: "value",
-        message,
-        ...extra,
-      },
-    ]);
+  const rl = readline.createInterface({ input, output });
 
-    return answer.value;
+  try {
+    while (true) {
+      const suffix = extra.default === undefined ? "" : ` (${extra.default})`;
+      const value = await rl.question(`${message}${suffix} `);
+      const answer = value || String(extra.default ?? "");
+
+      if (typeof extra.validate === "function") {
+        const validation = extra.validate(answer);
+        if (validation !== true) {
+          console.log(validation);
+          continue;
+        }
+      }
+
+      return typeof extra.filter === "function" ? extra.filter(answer) : answer;
+    }
   } catch (err) {
     console.error(`Ask: ${err}`);
     throw err;
+  } finally {
+    rl.close();
   }
 }
 

@@ -99,8 +99,6 @@ export async function CrudPrompt() {
 }
 
 export async function promptGroqSelector() {
-  const rl = createInterface();
-
   try {
     const rawData = await fs.readFile(promptJson, "utf-8");
     const prompts = JSON.parse(rawData);
@@ -109,33 +107,30 @@ export async function promptGroqSelector() {
       console.log(
         chalk.red("Prompt kosong! Silakan buat dulu via menu CRUD Prompt."),
       );
-      rl.close();
       return null;
     }
 
-    console.log(chalk.cyan("\n--- Pilih Prompt ---"));
-    prompts.forEach((p, index) => {
-      console.log(`${index + 1}. ${p.name}`);
+    prompts.forEach((prompt, index) => {
+      console.log(`${index + 1}. ${prompt.name}`);
     });
 
-    const choiceStr = await rl.question(
-      `Pilih nomor prompt (1-${prompts.length}): `,
-    );
-    const choice = parseInt(choiceStr, 10) - 1;
-
+    const rl = createInterface();
+    const choice = await rl.question(`Pilih prompt (1-${prompts.length}): `);
     rl.close();
+    const selectedIndex = parseInt(choice, 10) - 1;
 
-    if (isNaN(choice) || choice < 0 || choice >= prompts.length) {
-      console.log(chalk.red("Pilihan tidak valid!"));
+    if (
+      Number.isNaN(selectedIndex) ||
+      selectedIndex < 0 ||
+      selectedIndex >= prompts.length
+    ) {
+      console.log(chalk.red("Pilihan prompt tidak valid."));
       return null;
     }
 
-    return prompts[choice].prompt;
+    return prompts[selectedIndex].prompt;
   } catch (err) {
-    console.error(
-      chalk.red("Gagal membaca file prompt.json, pastikan filenya ada."),
-    );
-    rl.close();
+    console.error(chalk.red("Gagal memilih prompt:"), err.message);
     return null;
   }
 }

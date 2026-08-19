@@ -1,6 +1,7 @@
-import inquirer from "inquirer";
 import chalk from "chalk";
 import { spawn } from "child_process";
+import readline from "readline/promises";
+import { stdin as input, stdout as output } from "process";
 import { env } from "./automation_server/utils/CliAsk/inputEnv.js";
 import {
   main,
@@ -42,27 +43,11 @@ Example output:
 Do not include any other text. Output ONLY the JSON object. Avoid making it identical to the original image; keep similarity around 80% while creatively reimagining the subject.`,
 };
 
-// export async function promptGroqSelector() {
-//   console.log(`
-//         1.Normal prompt
-//         2.Force Siluet
-//         `);
-//   const { choice } = await inquirer.prompt([
-//     {
-//       type: "list",
-//       name: "choice",
-//       message: "Pilih prompt:",
-//       choices: [
-//         { name: "Normal", value: "1" },
-//         { name: "Force Silhouette", value: "2" },
-//       ],
-//     },
-//   ]);
-
-//   return promptMap[choice];
-// }
-
 const APP_PASSWORD = "faruqganteng";
+
+function createInterface() {
+  return readline.createInterface({ input, output });
+}
 
 async function authenticate() {
   console.clear();
@@ -70,14 +55,9 @@ async function authenticate() {
   console.log(chalk.cyan.bold(`   SECURITY AUTHENTICATION   `));
   console.log(chalk.cyan.bold(`=============================\n`));
 
-  const { password } = await inquirer.prompt([
-    {
-      type: "password",
-      name: "password",
-      message: "Masukkan Password CLI:",
-      mask: "*",
-    },
-  ]);
+  const rl = createInterface();
+  const password = await rl.question("Masukkan Password CLI: ");
+  rl.close();
 
   if (password === APP_PASSWORD) {
     console.log(chalk.green("\nAccess Granted! Membuka menu...\n"));
@@ -95,22 +75,18 @@ async function askGeneratejustFlow() {
       "\n⚠️  Generate Just Flow akan menghasilkan flow tanpa gambar. Pastikan untuk menggunakan prompt yang sesuai untuk hasil terbaik.\n",
     ),
   );
-  const PathJson = await inquirer.prompt([
-    {
-      type: "input",
-      name: "path",
-      message:
-        "Masukkan path folder output yang berisi hasil.json (contoh: ./output):",
-      validate: function (input) {
-        if (!input.trim()) {
-          return "Path tidak boleh kosong!";
-        }
-        return true;
-      },
-    },
-  ]);
-
-  return PathJson.path;
+  const rl = createInterface();
+  try {
+    while (true) {
+      const pathJson = await rl.question(
+        "Masukkan path folder output yang berisi hasil.json (contoh: ./output): ",
+      );
+      if (pathJson.trim()) return pathJson.trim();
+      console.log("Path tidak boleh kosong!");
+    }
+  } finally {
+    rl.close();
+  }
 }
 
 async function mainMenu() {
@@ -130,21 +106,9 @@ async function mainMenu() {
   console.log("[7] Edit isi Prompt");
   console.log("[8] Manajemen Chrome profiles");
   console.log("[0] Exit\n");
-  const { choice } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "choice",
-      message: "Pilih mode:",
-      choices: [
-        { name: "Input API", value: "1" },
-        { name: "Start Automation", value: "2" },
-        { name: "Start Groq NFlowGenerate", value: "3" },
-        { name: "Test API Keys", value: "4" },
-        { name: "Generate Just Flow", value: "5" },
-        { name: "Exit", value: "0" },
-      ],
-    },
-  ]);
+  const rl = createInterface();
+  const choice = (await rl.question("Pilih mode: ")).trim();
+  rl.close();
 
   switch (choice) {
     case "1":
@@ -188,13 +152,9 @@ async function mainMenu() {
 }
 
 async function pause() {
-  await inquirer.prompt([
-    {
-      type: "input",
-      name: "enter",
-      message: "Tekan Enter untuk kembali ke menu...",
-    },
-  ]);
+  const rl = createInterface();
+  await rl.question("Tekan Enter untuk kembali ke menu...");
+  rl.close();
 }
 
 function checkEnv() {
