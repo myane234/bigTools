@@ -318,10 +318,23 @@ async function scrape(
     if (successCount > 0) {
       await browserI.page.waitForTimeout(3000);
 
-      const downloadZipButton = browserI.page
+      const appFrame = browserI.page.frameLocator('iframe[title="Applet preview"]');
+      const downloadZipButton = appFrame
         .getByRole("button", { name: /Download ZIP/i })
         .first();
-      await downloadZipButton.waitFor({ state: "visible", timeout: 30000 });
+
+      try {
+        await downloadZipButton.waitFor({ state: "visible", timeout: 120000 });
+      } catch (frameError) {
+        const pageDownloadZipButton = browserI.page
+          .getByRole("button", { name: /Download ZIP/i })
+          .first();
+        await pageDownloadZipButton.waitFor({ state: "visible", timeout: 30000 });
+        await pageDownloadZipButton.click();
+        console.log(`📦 Download ZIP dimulai untuk profile '${profile}'.`);
+        return successCount;
+      }
+
       await downloadZipButton.click();
       console.log(`📦 Download ZIP dimulai untuk profile '${profile}'.`);
     }
