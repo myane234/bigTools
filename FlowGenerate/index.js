@@ -430,6 +430,74 @@ export async function openProfiles() {
   }
 }
 
+async function handleFlowPopups(page) {
+  const signInButton = page
+    .getByRole("button", { name: /Sign in to Flow/i })
+    .first();
+  if (await signInButton.count() > 0 && await signInButton.isVisible()) {
+    await signInButton.click();
+    await page.waitForTimeout(1500);
+  }
+
+  const settingsHeading = page
+    .getByRole("heading", { name: /Gunakan dan bentuk alat AI untuk kreativitas/i })
+    .first();
+  if (await settingsHeading.count() > 0 && await settingsHeading.isVisible()) {
+    const checkboxes = page.getByRole("checkbox");
+    for (let i = 0; i < await checkboxes.count(); i++) {
+      const checkbox = checkboxes.nth(i);
+      if ((await checkbox.getAttribute("aria-checked")) !== "true") {
+        await checkbox.check().catch(() => checkbox.click());
+      }
+    }
+
+    const nextButton = page
+      .getByRole("button", { name: /Berikutnya/i })
+      .first();
+    await nextButton.waitFor({ state: "visible", timeout: 30000 });
+    await nextButton.click();
+    await page.waitForTimeout(1000);
+  }
+
+  const privacyHeading = page
+    .getByRole("heading", { name: /Tinjau kebijakan privasi kami/i })
+    .first();
+  if (await privacyHeading.count() > 0 && await privacyHeading.isVisible()) {
+    const scrollContainer = privacyHeading.locator("xpath=..").locator("xpath=..");
+    await scrollContainer.evaluate((element) => {
+      let current = element;
+      while (current && current !== document.body) {
+        if (current.scrollHeight > current.clientHeight) {
+          current.scrollTop = current.scrollHeight;
+          return;
+        }
+        current = current.parentElement;
+      }
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+
+    const continueButton = page
+      .getByRole("button", { name: /Lanjutkan/i })
+      .first();
+    await continueButton.waitFor({ state: "visible", timeout: 30000 });
+    for (let attempt = 0; attempt < 15 && await continueButton.isDisabled(); attempt++) {
+      await scrollContainer.evaluate((element) => {
+        let current = element;
+        while (current && current !== document.body) {
+          if (current.scrollHeight > current.clientHeight) {
+            current.scrollTop = current.scrollHeight;
+            return;
+          }
+          current = current.parentElement;
+        }
+      });
+      await page.waitForTimeout(400);
+    }
+    await continueButton.click();
+    await page.waitForTimeout(1500);
+  }
+}
+
 export async function openSharedFlowInAllProfiles() {
   const sharedFlowUrl =
     "https://labs.google/fx/tools/flow/shared/tool/a82f2baf-ebcd-4e00-b119-2ef077fe44af";
@@ -448,8 +516,37 @@ export async function openSharedFlowInAllProfiles() {
       await profileBrowser.init(profile);
       const page = profileBrowser.page;
 
+      await page.goto("https://labs.google/fx/id/tools/flow", {
+        waitUntil: "domcontentloaded",
+      });
+      await page.waitForTimeout(3000);
+      await handleFlowPopups(page);
+
+      const newProjectButton = page
+        .getByRole("button", { name: /Project baru|New project/i })
+        .first();
+      if (await newProjectButton.count() > 0 && await newProjectButton.isVisible()) {
+        await newProjectButton.click();
+      }
+
+      const projectUrlPattern =
+        /https:\/\/labs\.google\/fx\/id\/tools\/flow\/project\/[^/]+\/tool-version\/a82f2baf-ebcd-4e00-b119-2ef077fe44af/;
+      await page.waitForURL(projectUrlPattern, { timeout: 30000 }).catch(() => {});
+      await page.waitForTimeout(2000);
+      const promptMarker = page.getByText("Paste JSON or Type Prompt", { exact: true }).first();
+      const isPromptProject = projectUrlPattern.test(page.url()) &&
+        await promptMarker.count() > 0 &&
+        await promptMarker.isVisible();
+
+      if (isPromptProject) {
+        activeBrowsers.push({ profile, context: profileBrowser.context });
+        console.log(`✅ ${profile}: project siap, ditemukan "Paste JSON or Type Prompt".`);
+        continue;
+      }
+
       await page.goto(sharedFlowUrl, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(3000);
+      await handleFlowPopups(page);
 
       const tryProjectButton = page
         .getByRole("button", { name: /Coba di project/i })
