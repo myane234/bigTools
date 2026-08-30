@@ -16,6 +16,10 @@ function readProfileStatus() {
   return {};
 }
 
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function updateProfileStatus(profile, finalUrl) {
   const status = readProfileStatus();
   const isLabsFlowUrl =
@@ -39,6 +43,26 @@ function updateProfileStatus(profile, finalUrl) {
 
 export function getNonLabsProfiles() {
   return readProfileStatus();
+}
+
+export function isProfileQuotaBlocked(profile) {
+  const entry = readProfileStatus()[profile];
+  return Boolean(entry?.quotaBlockedOn && entry.quotaBlockedOn === today());
+}
+
+export function markProfileQuotaBlocked(profile) {
+  const status = readProfileStatus();
+  const previous = status[profile] || {};
+
+  status[profile] = {
+    ...previous,
+    quotaBlockedOn: today(),
+    lastUpdate: new Date().toLocaleString("id-ID"),
+  };
+  fs.writeFileSync(statusFile, JSON.stringify(status, null, 2));
+  console.warn(
+    `🚫 Profile '${profile}' diblokir hari ini karena kuota Agen Alat habis.`,
+  );
 }
 
 export function saveHistory(profile, finalUrl, successCount, saveDir) {

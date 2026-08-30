@@ -2,7 +2,11 @@ import { chromium } from "playwright-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import fs from "fs/promises";
 import { generate } from "./utils/automationGenerate.js";
-import { saveHistory } from "./utils/historyJson.js";
+import {
+  isProfileQuotaBlocked,
+  markProfileQuotaBlocked,
+  saveHistory,
+} from "./utils/historyJson.js";
 
 export const profiles = (await fs.readdir("D:\\chrome-profiles"))
   .filter((name) => /^profile\d+$/i.test(name))
@@ -95,6 +99,21 @@ export async function generateImageFlow(
 ) {
   try {
     const hasilJsonPath = `${outputDir}/hasil.json`;
+    const availableProfiles = profiles.filter(
+      (profile) => !isProfileQuotaBlocked(profile),
+    );
+
+    const blockedProfiles = profiles.filter((profile) =>
+      isProfileQuotaBlocked(profile),
+    );
+    for (const profile of blockedProfiles) {
+      console.log(`⏭️ Melewati ${profile}: kuota Agen Alat habis hari ini.`);
+    }
+
+    if (availableProfiles.length === 0) {
+      console.log("Tidak ada profile yang tersedia karena semua terkena blokir kuota hari ini.");
+      return;
+    }
 
     let prompts = [];
     try {
@@ -177,6 +196,14 @@ export async function generateImageFlow(
     let promptsToProcess = [...prompts];
 
     while (promptsToProcess.length > 0) {
+      const roundProfiles = availableProfiles.filter(
+        (profile) => !isProfileQuotaBlocked(profile),
+      );
+      if (roundProfiles.length === 0) {
+        console.log("⏭️ Semua profile yang tersisa terkena blokir kuota hari ini.");
+        break;
+      }
+
       console.log(
         `\n🔁 Mulai round ${round} dengan ${promptsToProcess.length} prompt tersisa`,
       );
@@ -184,22 +211,22 @@ export async function generateImageFlow(
 
       // Siapkan distribusi prompt untuk semua profil yang tersedia
       const profileToPrompts = {};
-      for (const profile of profiles) {
+      for (const profile of roundProfiles) {
         profileToPrompts[profile] = [];
       }
 
       // Bagi rata prompt ke semua profil secara berurutan
       for (let i = 0; i < promptsToProcess.length; i++) {
-        const profileIndex = i % profiles.length;
-        const profile = profiles[profileIndex];
+        const profileIndex = i % roundProfiles.length;
+        const profile = roundProfiles[profileIndex];
         profileToPrompts[profile].push(promptsToProcess[i]);
       }
 
       let roundSuccess = false;
 
       // Jalankan profil dalam batch sesuai maxConcurrentProfiles
-      for (let i = 0; i < profiles.length; i += maxConcurrentProfiles) {
-        const currentProfiles = profiles.slice(i, i + maxConcurrentProfiles);
+      for (let i = 0; i < roundProfiles.length; i += maxConcurrentProfiles) {
+        const currentProfiles = roundProfiles.slice(i, i + maxConcurrentProfiles);
 
         const activeProfilesInBatch = currentProfiles.filter(
           (p) => profileToPrompts[p].length > 0,
@@ -310,7 +337,7 @@ async function scrape(
       waitUntil: "networkidle",
     });
 
-    const { successCount, finalUrl } = await generate(
+    const { successCount, finalUrl, quotaReached } = await generate(
       browserI.page,
       profile,
       batchPrompts,
@@ -323,6 +350,10 @@ async function scrape(
     saveHistory(profile, finalUrl, successCount, saveDir);
     // ------------------------------
 
+    if (quotaReached) {
+      markProfileQuotaBlocked(profile);
+    }
+
     if (successCount > 0) {
       await browserI.page.waitForTimeout(3000);
 
@@ -331,19 +362,18 @@ async function scrape(
         .getByRole("button", { name: /Download ZIP/i })
         .first();
 
-      try {
-        await downloadZipButton.waitFor({ state: "visible", timeout: 120000 });
-      } catch (frameError) {
-        const pageDownloadZipButton = browserI.page
-          .getByRole("button", { name: /Download ZIP/i })
-          .first();
-        await pageDownloadZipButton.waitFor({ state: "visible", timeout: 30000 });
-        await pageDownloadZipButton.click();
-        console.log(`📦 Download ZIP dimulai untuk profile '${profile}'.`);
-        return successCount;
+      let button = downloadZipButton;
+      if (await button.count() === 0) {
+        button = browserI.page.getByRole("button", { name: /Download ZIP/i }).first();
       }
+      await button.waitFor({ state: "visible", timeout: 120000 });
 
-      await downloadZipButton.click();
+      const downloadPromise = browserI.page.waitForEvent("download", {
+        timeout: 120000,
+      });
+      await button.click();
+      const download = await downloadPromise;
+      await download.path();
       console.log(`📦 Download ZIP dimulai untuk profile '${profile}'.`);
     }
 
@@ -428,6 +458,51 @@ export async function openProfiles() {
             waitUntil: "domcontentloaded",
           })
           .catch(() => {});
+              let downloaded = false;
+
+              for (let attempt = 1; attempt <= 2 && !downloaded; attempt++) {
+                const frameDownloadZipButton = appFrame
+                  .getByRole("button", { name: /Download ZIP/i })
+                  .first();
+                const pageDownloadZipButton = browserI.page
+                  .getByRole("button", { name: /Download ZIP/i })
+                  .first();
+                let downloadZipButton = frameDownloadZipButton;
+
+                try {
+                  await frameDownloadZipButton.waitFor({
+                    state: "visible",
+                    timeout: 120000,
+                  });
+                } catch (frameError) {
+                  downloadZipButton = pageDownloadZipButton;
+                  await downloadZipButton.waitFor({
+                    state: "visible",
+                    timeout: 30000,
+                  });
+                }
+
+                try {
+                  const downloadPromise = browserI.page.waitForEvent("download", {
+                    timeout: 120000,
+                  });
+                  await downloadZipButton.click();
+                  const download = await downloadPromise;
+                  await download.path();
+                  downloaded = true;
+                  console.log(`📦 Download ZIP selesai untuk profile '${profile}'.`);
+                } catch (downloadError) {
+                  const errorText = browserI.page.getByText(
+                    /Something went wrong/i,
+                  );
+                  const hasDownloadError = await errorText.count() > 0;
+                  if (!hasDownloadError || attempt === 2) {
+                    throw downloadError;
+                  }
+                  console.warn(`⚠️ Download ZIP gagal, mencoba ulang (${attempt}/2)...`);
+                  await browserI.page.waitForTimeout(3000);
+                }
+              }
 
         activeBrowsers.push({ profile, context });
         await delay(1500); // Jeda kecil antar pembukaan jendela browser

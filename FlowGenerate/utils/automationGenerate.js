@@ -52,9 +52,11 @@ async function waitForImage(page) {
     while (true) {
       // --- CEK ERROR KUOTA ---
       // 1. Cek di dalam iframe
-      if ((await quotaErrorLocator.count()) > 0) {
+      if ((await quotaErrorLocator.count()) > 0 ||
+        (await appFrame.getByText(/Kuota Agen Alat habis/i).count()) > 0 ||
+        (await page.getByText(/Anda telah mencapai batas kuota|Kuota Agen Alat habis/i).count()) > 0) {
         console.log("🚨 Peringatan: Kuota Agen Alat habis!");
-        return false; // Mengembalikan false agar script tahu harus stop
+        return { success: false, quotaReached: true };
       }
 
       // 2. Cek di halaman utama (jaga-jaga jika toast muncul di luar iframe)
@@ -62,7 +64,7 @@ async function waitForImage(page) {
         (await page.getByText(/Anda telah mencapai batas kuota/i).count()) > 0
       ) {
         console.log("🚨 Peringatan: Kuota Agen Alat habis!");
-        return false;
+        return { success: false, quotaReached: true };
       }
       // -----------------------
 
@@ -81,10 +83,10 @@ async function waitForImage(page) {
     }
 
     console.log("✅ Generasi selesai!");
-    return true; // Mengembalikan true jika sukses atau selesai normal
+    return { success: true, quotaReached: false };
   } catch (err) {
     console.error("Error saat menunggu proses generasi:", err);
-    return true; // Default lanjut jika error sistem yang tidak diketahui
+    return { success: true, quotaReached: false }; // Default lanjut jika error sistem yang tidak diketahui
   }
 }
 
@@ -108,6 +110,7 @@ export async function generate(
 ) {
   let successCount = 0;
   let finalUrl = "";
+  let quotaReached = false;
   try {
     // Tangani popup consent / privacy jika muncul sebelum membuat project baru
     await handleInitialPopups(page).catch((err) =>
@@ -238,10 +241,11 @@ export async function generate(
       // Tekan Enter spesifik pada textarea di dalam iframe
       await appFrame.locator("button", { hasText: "Create" }).click();
 
-      const isSuccess = await waitForImage(page);
+      const generationResult = await waitForImage(page);
 
       // Jika false (karena kuota habis), hentikan perulangan prompt
-      if (!isSuccess) {
+      if (!generationResult.success) {
+        quotaReached = generationResult.quotaReached;
         console.log(
           `🛑 Menghentikan proses pada profile: ${profile} karena batas kuota.`,
         );
@@ -250,13 +254,13 @@ export async function generate(
       successCount++;
     }
 
-    return { successCount, finalUrl };
+    return { successCount, finalUrl, quotaReached };
   } catch (err) {
     console.error("Error di generate:", err);
     await page.screenshot({
       path: `${testingGambarPath}/${profile}_error.png`,
     });
-    return { successCount, finalUrl };
+    return { successCount, finalUrl, quotaReached };
   }
 }
 
