@@ -315,32 +315,15 @@ async function scrape(
     saveHistory(profile, finalUrl, successCount, saveDir);
     // ------------------------------
 
-    if (finalUrl) {
-      const projectUrl = finalUrl.replace(
-        /\/tool-version\/a82f2baf-ebcd-4e00-b119-2ef077fe44af\/?$/,
-        "/",
-      );
-      console.log(`📦 Membuka project untuk download: ${projectUrl}`);
-
-      await browserI.page.goto(projectUrl, {
-        waitUntil: "domcontentloaded",
-      });
+    if (successCount > 0) {
       await browserI.page.waitForTimeout(3000);
 
-      const moreButton = browserI.page
-        .getByRole("button", { name: /^Lainnya$/i })
+      const downloadZipButton = browserI.page
+        .getByRole("button", { name: /Download ZIP/i })
         .first();
-      await moreButton.waitFor({ state: "visible", timeout: 30000 });
-      await moreButton.click();
-
-      const downloadProjectButton = browserI.page
-        .getByRole("menuitem", { name: /Download Project/i })
-        .first();
-      await downloadProjectButton.waitFor({
-        state: "visible",
-        timeout: 30000,
-      });
-      await downloadProjectButton.click();
+      await downloadZipButton.waitFor({ state: "visible", timeout: 30000 });
+      await downloadZipButton.click();
+      console.log(`📦 Download ZIP dimulai untuk profile '${profile}'.`);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
