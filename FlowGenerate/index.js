@@ -88,19 +88,28 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function listenForGeneratedImages(page, saveDir, profile) {
   const pendingDownloads = new Set();
+  const capturedUrls = new Set();
   let imageNumber = 0;
 
   const handleResponse = (response) => {
     const imageUrl = response.url();
     if (!imageUrl.includes("flow-content.google/image/")) return;
+    if (capturedUrls.has(imageUrl)) return;
+    capturedUrls.add(imageUrl);
 
     const downloadTask = (async () => {
       try {
-        if (response.status() !== 200) return;
+        if (response.status() < 200 || response.status() >= 300) return;
 
         const body = await response.body();
         const contentType = response.headers()["content-type"] || "";
-        const extension = contentType.includes("png") ? "png" : "jpg";
+        const extension = contentType.includes("png")
+          ? "png"
+          : contentType.includes("webp")
+            ? "webp"
+            : contentType.includes("avif")
+              ? "avif"
+              : "jpg";
         imageNumber++;
         const filePath = `${saveDir}\\${profile}_image_${imageNumber}.${extension}`;
         await fs.writeFile(filePath, body);
@@ -389,7 +398,7 @@ async function scrape(
       markProfileQuotaBlocked(profile);
     }
 
-    await browserI.page.waitForTimeout(3000);
+    await browserI.page.waitForTimeout(8000);
     await stopImageListener();
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
