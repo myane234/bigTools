@@ -430,6 +430,71 @@ export async function openProfiles() {
   }
 }
 
+export async function openSharedFlowInAllProfiles() {
+  const sharedFlowUrl =
+    "https://labs.google/fx/tools/flow/shared/tool/a82f2baf-ebcd-4e00-b119-2ef077fe44af";
+  const activeBrowsers = [];
+
+  if (profiles.length === 0) {
+    console.log("Tidak ada profil Chrome yang tersedia.");
+    return;
+  }
+
+  for (const [index, profile] of profiles.entries()) {
+    const profileBrowser = new browser();
+
+    try {
+      console.log(`🌐 Membuka shared Flow pada ${profile} (${index + 1}/${profiles.length})...`);
+      await profileBrowser.init(profile);
+      const page = profileBrowser.page;
+
+      await page.goto(sharedFlowUrl, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(3000);
+
+      const tryProjectButton = page
+        .getByRole("button", { name: /Coba di project/i })
+        .first();
+      await tryProjectButton.waitFor({ state: "visible", timeout: 30000 });
+      await tryProjectButton.click();
+
+      const projectDate = page
+        .locator("span")
+        .filter({ hasText: /\d{1,2}:\d{2}/ })
+        .first();
+      await projectDate.waitFor({ state: "visible", timeout: 30000 });
+      await projectDate.click();
+
+      const openButton = page
+        .getByRole("button", { name: /^Buka$/i })
+        .first();
+      await openButton.waitFor({ state: "visible", timeout: 30000 });
+      await openButton.click();
+
+      await page.waitForTimeout(3000);
+      const moreOptionsButton = page
+        .getByRole("button", { name: /Opsi lainnya/i })
+        .first();
+      await moreOptionsButton.waitFor({ state: "visible", timeout: 30000 });
+      await moreOptionsButton.click();
+
+      const pinButton = page
+        .getByRole("menuitem", { name: /Sematkan/i })
+        .first();
+      await pinButton.waitFor({ state: "visible", timeout: 30000 });
+      await pinButton.click();
+
+      activeBrowsers.push({ profile, context: profileBrowser.context });
+      console.log(`✅ Project berhasil dibuka pada ${profile}.`);
+      await delay(1500);
+    } catch (err) {
+      console.error(`❌ Gagal membuka project pada profile '${profile}': ${err.message}`);
+      await profileBrowser.close().catch(() => {});
+    }
+  }
+
+  console.log(`✅ Selesai: ${activeBrowsers.length}/${profiles.length} profile berhasil diproses.`);
+}
+
 // async function test() {
 //     const browserI = new browser();
 //     console.log('Mulai test generateImageFlow...');

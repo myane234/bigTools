@@ -11,7 +11,10 @@ import {
 import { setPrompt } from "./automation_server/utils/groq/getPromptvalue.js";
 import GroqAi from "./automation_server/utils/groq/groqAi.js";
 import { start } from "repl";
-import { openProfiles } from "./FlowGenerate/index.js";
+import {
+  openProfiles,
+  openSharedFlowInAllProfiles,
+} from "./FlowGenerate/index.js";
 import { CrudPrompt, promptGroqSelector } from "./utils/prompt.js";
 import { manageProfiles } from "./utils/BuatChrome.js";
 
@@ -105,6 +108,7 @@ async function mainMenu() {
   console.log("[5] Generate Just Flow");
   console.log("[7] Edit isi Prompt");
   console.log("[8] Manajemen Chrome profiles");
+  console.log("[9] Buka shared Flow di semua profile");
   console.log("[0] Exit\n");
   const rl = createInterface();
   const choice = (await rl.question("Pilih mode: ")).trim();
@@ -139,6 +143,9 @@ async function mainMenu() {
       break;
     case "8":
       await manageProfiles();
+      break;
+    case "9":
+      await openSharedFlowInAllProfiles();
       break;
     case "0":
       console.log(chalk.red("\nBye bro 👋\n"));
