@@ -3,7 +3,11 @@ import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import fs from "fs/promises";
 import { generate } from "./utils/automationGenerate.js";
 
-export const profiles = await fs.readdir("D:\\chrome-profiles");
+export const profiles = (await fs.readdir("D:\\chrome-profiles"))
+  .filter((name) => /^profile\d+$/i.test(name))
+  .sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+);
 
 chromium.use(StealthPlugin());
 console.log(profiles);
