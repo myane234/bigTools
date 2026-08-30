@@ -1,4 +1,45 @@
 import fs from "fs";
+import path from "path";
+
+const statusFile = path.join(process.cwd(), "profile-final-url-status.json");
+
+function readProfileStatus() {
+  try {
+    if (fs.existsSync(statusFile)) {
+      const status = JSON.parse(fs.readFileSync(statusFile, "utf-8"));
+      return status && typeof status === "object" ? status : {};
+    }
+  } catch (err) {
+    console.warn("⚠️ Gagal membaca status final URL profile:", err.message);
+  }
+
+  return {};
+}
+
+function updateProfileStatus(profile, finalUrl) {
+  const status = readProfileStatus();
+  const isLabsFlowUrl =
+    typeof finalUrl === "string" &&
+    finalUrl.startsWith("https://labs.google/fx");
+
+  if (finalUrl && !isLabsFlowUrl) {
+    status[profile] = {
+      finalUrl,
+      lastUpdate: new Date().toLocaleString("id-ID"),
+    };
+    console.warn(
+      `⚠️ Profile '${profile}' memiliki finalUrl bukan labs.google: ${finalUrl}`,
+    );
+  } else {
+    delete status[profile];
+  }
+
+  fs.writeFileSync(statusFile, JSON.stringify(status, null, 2));
+}
+
+export function getNonLabsProfiles() {
+  return readProfileStatus();
+}
 
 export function saveHistory(profile, finalUrl, successCount, saveDir) {
   const historyFile = `${saveDir}/history.json`;
@@ -31,4 +72,5 @@ export function saveHistory(profile, finalUrl, successCount, saveDir) {
   }
 
   fs.writeFileSync(historyFile, JSON.stringify(historyData, null, 2));
+  updateProfileStatus(profile, finalUrl);
 }

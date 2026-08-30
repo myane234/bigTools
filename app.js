@@ -17,6 +17,7 @@ import {
 } from "./FlowGenerate/index.js";
 import { CrudPrompt, promptGroqSelector } from "./utils/prompt.js";
 import { manageProfiles } from "./utils/BuatChrome.js";
+import { getNonLabsProfiles } from "./FlowGenerate/utils/historyJson.js";
 
 const promptMap = {
   1: `
@@ -64,12 +65,29 @@ async function authenticate() {
 
   if (password === APP_PASSWORD) {
     console.log(chalk.green("\nAccess Granted! Membuka menu...\n"));
+    showNonLabsProfiles();
     await new Promise((resolve) => setTimeout(resolve, 1000));
     return true;
   } else {
     console.log(chalk.red("\nPassword salah! Akses ditolak.\n"));
     process.exit(1);
   }
+}
+
+function showNonLabsProfiles() {
+  const nonLabsProfiles = getNonLabsProfiles();
+  const entries = Object.entries(nonLabsProfiles);
+
+  if (entries.length === 0) {
+    console.log(chalk.green("Tidak ada profile dengan finalUrl di luar labs.google.\n"));
+    return;
+  }
+
+  console.log(chalk.yellow("⚠️ Profile dengan finalUrl bukan labs.google:"));
+  for (const [profile, details] of entries) {
+    console.log(`- ${profile}: ${details.finalUrl}`);
+  }
+  console.log();
 }
 
 async function askGeneratejustFlow() {
