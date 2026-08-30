@@ -298,6 +298,14 @@ async function scrape(
   try {
     await browserI.init(profile);
 
+    await fs.mkdir(saveDir, { recursive: true });
+    const client = await browserI.context.newCDPSession(browserI.page);
+    await client.send("Page.setDownloadBehavior", {
+      behavior: "allow",
+      downloadPath: saveDir,
+    });
+    console.log(`📁 Lokasi download profile '${profile}': ${saveDir}`);
+
     await browserI.page.goto("https://labs.google/fx/id/tools/flow", {
       waitUntil: "networkidle",
     });
