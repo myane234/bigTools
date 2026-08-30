@@ -2,6 +2,7 @@ import { chromium } from "playwright-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import fs from "fs/promises";
 import { generate } from "./utils/automationGenerate.js";
+import { saveHistory } from "./utils/historyJson.js";
 
 export const profiles = (await fs.readdir("D:\\chrome-profiles"))
   .filter((name) => /^profile\d+$/i.test(name))
@@ -311,7 +312,7 @@ async function scrape(
     );
 
     // --- SIMPAN KE HISTORY.JSON ---
-    saveHistory(profile, finalUrl, successCount);
+    saveHistory(profile, finalUrl, successCount, saveDir);
     // ------------------------------
 
     await new Promise((resolve) => setTimeout(resolve, 5000));

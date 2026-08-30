@@ -1,3 +1,5 @@
+import fs from "fs";
+
 export function saveHistory(profile, finalUrl, successCount, saveDir) {
   const historyFile = `${saveDir}/history.json`;
   let historyData = [];
