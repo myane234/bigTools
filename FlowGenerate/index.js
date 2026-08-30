@@ -355,26 +355,68 @@ async function scrape(
     }
 
     if (successCount > 0) {
-      await browserI.page.waitForTimeout(3000);
-
       const appFrame = browserI.page.frameLocator('iframe[title="Applet preview"]');
-      const downloadZipButton = appFrame
-        .getByRole("button", { name: /Download ZIP/i })
-        .first();
+      const generating = appFrame.getByText(/Generating/i).first();
+      await generating.waitFor({ state: "hidden", timeout: 120000 }).catch(() => {});
 
-      let button = downloadZipButton;
-      if (await button.count() === 0) {
-        button = browserI.page.getByRole("button", { name: /Download ZIP/i }).first();
+      let downloadCompleted = false;
+      let lastDownloadError;
+      for (let attempt = 1; attempt <= 3 && !downloadCompleted; attempt++) {
+        let button = appFrame
+          .getByRole("button", { name: /Download ZIP/i })
+          .first();
+        try {
+          await button.waitFor({ state: "visible", timeout: 30000 });
+        } catch (frameError) {
+          button = browserI.page
+            .getByRole("button", { name: /Download ZIP/i })
+            .first();
+          await button.waitFor({ state: "visible", timeout: 30000 });
+        }
+
+        await button.waitFor({ state: "attached", timeout: 30000 });
+        if (await button.isDisabled()) {
+          await browserI.page.waitForTimeout(2000);
+          continue;
+        }
+
+        try {
+          const downloadPromise = browserI.page.waitForEvent("download", {
+            timeout: 120000,
+          });
+          await button.click();
+          const download = await downloadPromise;
+          const failure = await download.failure();
+          if (failure) {
+            throw new Error(`Download dibatalkan: ${failure}`);
+          }
+          await download.path();
+          downloadCompleted = true;
+          console.log(`📦 Download ZIP selesai untuk profile '${profile}'.`);
+        } catch (downloadError) {
+          lastDownloadError = downloadError;
+          const hasErrorToast = await browserI.page
+            .getByText(/Something went wrong/i)
+            .count() > 0;
+          const hasQuotaToast = await browserI.page
+            .getByText(/Anda telah mencapai batas kuota|Kuota Agen Alat habis/i)
+            .count() > 0;
+          if (hasQuotaToast) {
+            markProfileQuotaBlocked(profile);
+          }
+          if (!hasErrorToast && attempt === 3) {
+            throw downloadError;
+          }
+          console.warn(
+            `⚠️ Download ZIP gagal (${attempt}/3): ${downloadError.message}`,
+          );
+          await browserI.page.waitForTimeout(3000);
+        }
       }
-      await button.waitFor({ state: "visible", timeout: 120000 });
 
-      const downloadPromise = browserI.page.waitForEvent("download", {
-        timeout: 120000,
-      });
-      await button.click();
-      const download = await downloadPromise;
-      await download.path();
-      console.log(`📦 Download ZIP dimulai untuk profile '${profile}'.`);
+      if (!downloadCompleted && lastDownloadError) {
+        throw lastDownloadError;
+      }
     }
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
