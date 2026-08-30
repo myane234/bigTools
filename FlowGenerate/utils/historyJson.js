@@ -4,6 +4,8 @@ export function saveHistory(profile, finalUrl, successCount, saveDir) {
   const historyFile = `${saveDir}/history.json`;
   let historyData = [];
 
+  fs.mkdirSync(saveDir, { recursive: true });
+
   try {
     if (fs.existsSync(historyFile)) {
       const fileContent = fs.readFileSync(historyFile, "utf-8");
