@@ -4,7 +4,7 @@
  * - askVision(page, q)   → tanya sesuatu berdasarkan screenshot
  */
 
-const OLLAMA_BASE = process.env.OLLAMA_HOST || 'http://localhost:11434';
+const OLLAMA_BASE = process.env.OLLAMA_HOST || 'http://100.65.224.93:11434';
 const VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'qwen2.5vl:latest';
 
 /**

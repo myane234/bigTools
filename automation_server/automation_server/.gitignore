@@ -1,0 +1,17 @@
+node_modules/
+.vscode/
+*.png
+*.jpg
+*.jpeg
+.env
+hasil.json
+AdobeScraper.bat
+
+Testing/*
+!Testing/.gitkeep
+
+Hasil/*
+!Hasil/.gitkeep
+
+downloads/*
+!downloads/.gitkeep

@@ -31,6 +31,40 @@ function checkDir(dirPath) {
 }
 
 /**
+ * Pengecekan apakah notifikasi batas penggunaan / kuota habis muncul
+ */
+export async function checkQuotaLimitError(page) {
+  try {
+    const errorMsgLocators = [
+      page.locator('.error-message'),
+      page.locator('.error-message-text'),
+      page.locator('.error-subtitle'),
+      page.getByText(/Anda telah mencapai batas penggunaan/i),
+      page.getByText(/Anda telah mencapai batas kuota/i),
+      page.getByText(/Kuota Agen Alat habis/i),
+    ];
+
+    for (const loc of errorMsgLocators) {
+      if (await loc.count() > 0 && await loc.first().isVisible()) {
+        const text = await loc.first().innerText().catch(() => '');
+        if (
+          text.includes('batas penggunaan') ||
+          text.includes('batas kuota') ||
+          text.includes('Kuota Agen') ||
+          text.includes('Gagal')
+        ) {
+          console.log('🚨 Peringatan: Batas penggunaan / kuota tercapai!');
+          return true;
+        }
+      }
+    }
+  } catch (err) {
+    // ignore
+  }
+  return false;
+}
+
+/**
  * Tangani Agent Panel Header & Agent mode toggle chip
  * 1. Jika .agent-panel-header ada, klik tombol Close (aria-label="Close")
  * 2. Jika aria-pressed="true" pada chip Agent, klik agar menjadi false
@@ -102,12 +136,17 @@ export async function waitForPendingGeneration(page, timeoutMs = 90000) {
   console.log('⏳ Menunggu proses gambar (<flow-pending-tile>) selesai...');
 
   while (Date.now() - startTime < timeoutMs) {
+    // Cek error batas penggunaan / kuota saat menunggu
+    if (await checkQuotaLimitError(page)) {
+      return { success: false, quotaReached: true };
+    }
+
     const pendingTile = page.locator('flow-pending-tile').first();
     const isPending = await pendingTile.count() > 0 && await pendingTile.isVisible();
 
     if (!isPending) {
       console.log('✅ Proses generasi gambar selesai!');
-      return true;
+      return { success: true, quotaReached: false };
     }
 
     const percentage = await page.locator('.loading-percentage').first().innerText().catch(() => '');
@@ -119,7 +158,7 @@ export async function waitForPendingGeneration(page, timeoutMs = 90000) {
   }
 
   console.warn('⏱️ Timeout menunggu generasi selesai.');
-  return false;
+  return { success: false, quotaReached: false };
 }
 
 /**
@@ -136,8 +175,16 @@ export function attachFlowListener(page, saveDir = './Hasil') {
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs && currentPromptSaved < targetCount) {
+      // Cek error kuota / batas penggunaan terlebih dahulu
+      if (await checkQuotaLimitError(page)) {
+        return { savedCount: currentPromptSaved, savedFiles, quotaReached: true };
+      }
+
       // Tunggu tile pending selesai jika ada
-      await waitForPendingGeneration(page, 15000).catch(() => {});
+      const pendingResult = await waitForPendingGeneration(page, 15000).catch(() => ({ quotaReached: false }));
+      if (pendingResult?.quotaReached) {
+        return { savedCount: currentPromptSaved, savedFiles, quotaReached: true };
+      }
 
       // Scroll ke bawah agar gambar ter-render
       await page.evaluate(() => window.scrollBy(0, window.innerHeight));
@@ -193,7 +240,7 @@ export function attachFlowListener(page, saveDir = './Hasil') {
       await delay(2000);
     }
 
-    return { savedCount: currentPromptSaved, savedFiles };
+    return { savedCount: currentPromptSaved, savedFiles, quotaReached: false };
   };
 
   const stop = () => {};
@@ -331,6 +378,13 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
         continue;
       }
 
+      // Cek error batas penggunaan sebelum input prompt
+      if (await checkQuotaLimitError(page)) {
+        console.log(`🚨 Batas penggunaan tercapai pada profile '${profile}', menghentikan & rotasi akun.`);
+        quotaReached = true;
+        break;
+      }
+
       console.log(`\n▶️ Memproses prompt ${i + 1}/${prompts.length}: ${prompt.substring(0, 60)}...`);
 
       // Pastikan Agent Panel Header & Agent Mode mati sebelum mengetik prompt
@@ -358,6 +412,12 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
       const result = await listener.waitForImages(expectedCount, timeoutMs);
       console.log(`[Flow] selesai prompt ${i + 1}: ${result.savedCount} file (target ${expectedCount})`);
 
+      if (result.quotaReached) {
+        console.log(`🛑 Batas penggunaan tercapai pada profile '${profile}', rotasi akun.`);
+        quotaReached = true;
+        break;
+      }
+
       if (result.savedCount === 0) {
         console.log(`⚠️ Tidak ada gambar ter-capture untuk prompt ${i + 1}, menghentikan.`);
         break;
@@ -377,8 +437,8 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
 
     listener.stop();
 
-    // Mengunduh project saat semua prompt untuk profile ini sudah selesai
-    if (finalUrl) {
+    // Mengunduh project saat semua prompt untuk profile ini sudah selesai (jika tidak diblokir kuota)
+    if (finalUrl && !quotaReached) {
       await downloadProject(page, finalUrl, saveDir);
     }
 
