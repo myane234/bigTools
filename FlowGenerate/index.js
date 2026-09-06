@@ -31,6 +31,7 @@ export class browser {
       {
         executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
         headless: false,
+        acceptDownloads: true,
         ignoreDefaultArgs: [
           '--enable-automation',
           '--disable-extensions',

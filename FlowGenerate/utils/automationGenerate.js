@@ -10,7 +10,12 @@ const textBox = '[contenteditable="true"]';
 const testingGambarPath = './GambarTesting';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const flowApiMarker = '/fx/api/trpc/media.getMediaUrlRedirect';
+const flowApiMarkers = [
+  '/asb/',
+  'flow.google.com/asb/',
+  '/fx/api/trpc/media.getMediaUrlRedirect',
+  'flow-content.google/image',
+];
 
 function checkDir(dirPath) {
   try {
@@ -26,11 +31,21 @@ function checkDir(dirPath) {
 }
 
 /**
- * Tangani Agent mode toggle chip
- * Jika aria-pressed="true", klik agar menjadi false
+ * Tangani Agent Panel Header & Agent mode toggle chip
+ * 1. Jika .agent-panel-header ada, klik tombol Close (aria-label="Close")
+ * 2. Jika aria-pressed="true" pada chip Agent, klik agar menjadi false
  */
 export async function ensureAgentModeDisabled(page) {
   try {
+    // 1. Tutup agent panel header jika terbuka di awal
+    const headerCloseBtn = page.locator('.agent-panel-header button[aria-label="Close"]').first();
+    if (await headerCloseBtn.count() > 0 && await headerCloseBtn.isVisible()) {
+      console.log('✖️ Menutup agent-panel-header...');
+      await headerCloseBtn.click().catch(() => {});
+      await page.waitForTimeout(500);
+    }
+
+    // 2. Cek Agent mode toggle chip
     const agentBtn = page.locator('button.agent-mode-chip, button:has-text("Agent")').first();
     if (await agentBtn.count() > 0) {
       const isPressed = await agentBtn.getAttribute('aria-pressed');
@@ -109,9 +124,10 @@ export async function waitForPendingGeneration(page, timeoutMs = 90000) {
 
 /**
  * Scan DOM secara polling untuk menangkap gambar yang sudah muncul
+ * Mendukung selector img[src*="/asb/"], img[src*="flow.google.com"], img[data-media-id]
  */
 export function attachFlowListener(page, saveDir = './Hasil') {
-  const seenUrls = new Set();
+  const seenKeys = new Set();
   let savedCount = 0;
   const savedFiles = [];
 
@@ -127,12 +143,15 @@ export function attachFlowListener(page, saveDir = './Hasil') {
       await page.evaluate(() => window.scrollBy(0, window.innerHeight));
       await delay(2000);
 
-      // Cari element gambar di DOM
-      const imgLocators = await page.$$(`img[src*="${flowApiMarker}"]`);
+      // Cari elemen gambar di DOM dengan berbagai selector marker
+      const imgLocators = await page.$$('img[src*="/asb/"], img[src*="flow-content.google"], img[src*="getMediaUrlRedirect"], img[data-media-id], img.image[src^="http"]');
       for (const img of imgLocators) {
         const src = await page.evaluate(el => el.src, img);
-        if (src && !seenUrls.has(src)) {
-          seenUrls.add(src);
+        const mediaIdAttr = await page.evaluate(el => el.getAttribute('data-media-id'), img);
+        const uniqueKey = mediaIdAttr || src;
+
+        if (src && !seenKeys.has(uniqueKey)) {
+          seenKeys.add(uniqueKey);
 
           try {
             const base64 = await page.evaluate(async (imgSrc) => {
@@ -149,17 +168,15 @@ export function attachFlowListener(page, saveDir = './Hasil') {
               const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
               const buffer = Buffer.from(base64Data, 'base64');
 
-              const urlObj = new URL(src);
-              const mediaId = urlObj.searchParams.get('name') || Date.now().toString();
-
+              const fileId = mediaIdAttr || Date.now().toString();
               checkDir(saveDir);
-              const filePath = path.join(saveDir, `${mediaId}.png`);
+              const filePath = path.join(saveDir, `${fileId}.png`);
               fs.writeFileSync(filePath, buffer);
 
               savedCount++;
               currentPromptSaved++;
               savedFiles.push(filePath);
-              console.log(`[Flow] ✅ Tersimpan: ${filePath}`);
+              console.log(`[Flow] ✅ Gambar tersimpan dari DOM: ${filePath}`);
 
               if (currentPromptSaved >= targetCount) break;
             }
@@ -208,9 +225,9 @@ export async function handleAllPopupsWithAIFallback(page) {
 }
 
 /**
- * Buka link project dan klik "Download project"
+ * Buka link project dan mengunduh data project (Zip) langsung ke komputer
  */
-export async function downloadProject(page, projectUrl) {
+export async function downloadProject(page, projectUrl, saveDir = './Hasil') {
   try {
     console.log(`📌 Mengakses URL project untuk mengunduh: ${projectUrl}`);
     if (projectUrl && page.url() !== projectUrl) {
@@ -218,7 +235,7 @@ export async function downloadProject(page, projectUrl) {
       await page.waitForTimeout(3000);
     }
 
-    // 1. Klik tombol "More options" di dalam container tools-button-group / flow-more-options-menu
+    // 1. Klik tombol "More options" di dalam container flow-more-options-menu
     const moreOptionsSelectors = [
       'flow-more-options-menu button',
       '.tools-button-group flow-more-options-menu button',
@@ -238,19 +255,33 @@ export async function downloadProject(page, projectUrl) {
       }
     }
 
+    // Siapkan event listener Playwright download sebelum klik Download project
+    const downloadPromise = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
+
     // 2. Klik "Download project"
     const downloadItem = page.locator('.label:has-text("Download project"), .item-text:has-text("Download project"), span:has-text("Download project")').first();
     if (await downloadItem.count() > 0 && await downloadItem.isVisible()) {
       console.log('⬇️ Mengklik "Download project"...');
       await downloadItem.click().catch(() => {});
-      await page.waitForTimeout(3000);
     } else {
       const downloadMenu = page.getByRole('menuitem', { name: /Download project|Download/i }).first();
       if (await downloadMenu.count() > 0 && await downloadMenu.isVisible()) {
         console.log('⬇️ Mengklik menu Download project...');
         await downloadMenu.click().catch(() => {});
-        await page.waitForTimeout(3000);
       }
+    }
+
+    // Tangkap file download dan simpan ke saveDir
+    const download = await downloadPromise;
+    if (download) {
+      checkDir(saveDir);
+      const suggestedFilename = download.suggestedFilename() || `project_${Date.now()}.zip`;
+      const savePath = path.join(saveDir, suggestedFilename);
+      await download.saveAs(savePath);
+      console.log(`📦 File Project ZIP berhasil disimpan di: ${savePath}`);
+    } else {
+      console.log('ℹ️ Mengirim perintah download, menunggu browser memproses simpan file...');
+      await page.waitForTimeout(5000);
     }
   } catch (err) {
     console.warn(`⚠️ Gagal download project: ${err.message}`);
@@ -283,7 +314,7 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
     finalUrl = page.url();
     console.log(`📌 URL Project tersimpan: ${finalUrl}`);
 
-    // Cek dan sesuaikan Agent Mode & Pengaturan Canvas
+    // Cek dan sesuaikan Agent Panel Header, Agent Mode & Pengaturan Canvas
     await ensureAgentModeDisabled(page);
     await ensureCanvasSettings(page);
 
@@ -302,7 +333,7 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
 
       console.log(`\n▶️ Memproses prompt ${i + 1}/${prompts.length}: ${prompt.substring(0, 60)}...`);
 
-      // Pastikan Agent Mode mati sebelum mengetik prompt
+      // Pastikan Agent Panel Header & Agent Mode mati sebelum mengetik prompt
       await ensureAgentModeDisabled(page);
 
       await page.waitForSelector(textBox, { visible: true });
@@ -348,7 +379,7 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
 
     // Mengunduh project saat semua prompt untuk profile ini sudah selesai
     if (finalUrl) {
-      await downloadProject(page, finalUrl);
+      await downloadProject(page, finalUrl, saveDir);
     }
 
     return { successCount, finalUrl, quotaReached };
