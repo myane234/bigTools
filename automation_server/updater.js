@@ -205,6 +205,14 @@ export async function checkAndUpdate() {
   // Bersihkan temp
   fs.rmSync(TEMP_DIR, { recursive: true, force: true });
 
+  // Jalankan Obfuscation & Security Check
+  try {
+    const { processCodeSecurity } = await import('../utils/autoUpdater.js');
+    await processCodeSecurity();
+  } catch (secErr) {
+    console.warn('[Updater] Gagal menjalankan processCodeSecurity:', secErr.message);
+  }
+
   console.log(`\n[Updater] ✅ Update selesai! (${latestSHA.slice(0, 7)})\n`);
   return true;
 }

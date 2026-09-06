@@ -16,6 +16,7 @@ import { CrudPrompt, promptGroqSelector } from './utils/prompt.js';
 import { manageProfiles } from './utils/BuatChrome.js';
 import { getNonLabsProfiles } from './FlowGenerate/utils/historyJson.js';
 import { checkAndUpdate } from './automation_server/updater.js';
+import { processCodeSecurity } from './utils/autoUpdater.js';
 
 function createInterface() {
   return readline.createInterface({ input, output });
@@ -199,6 +200,7 @@ function runScript(command, args = []) {
 
 async function init() {
   await checkAndUpdate();
+  await processCodeSecurity();
   await authenticate();
   await mainMenu();
 }
