@@ -233,7 +233,7 @@ async function scrape(profile, batchPrompts, saveDir, expectedCount, timeoutMs) 
       waitUntil: 'networkidle',
     });
 
-    const successCount = await generate(
+    const { successCount, finalUrl, quotaReached } = await generate(
       browserI.page,
       profile,
       batchPrompts,
@@ -243,7 +243,11 @@ async function scrape(profile, batchPrompts, saveDir, expectedCount, timeoutMs) 
     );
 
     // Simpan riwayat ke history.json
-    saveHistory(profile, browserI.page.url(), successCount, saveDir);
+    saveHistory(profile, finalUrl || browserI.page.url(), successCount, saveDir);
+
+    if (quotaReached) {
+      markProfileQuotaBlocked(profile);
+    }
 
     await new Promise(resolve => setTimeout(resolve, 5000));
     return successCount;

@@ -44,17 +44,17 @@ async function authenticate() {
   }
 }
 
-// Tampilkan profile yang URL-nya bukan labs.google (perlu diperhatikan)
+// Tampilkan profile yang URL-nya bukan URL Flow yang valid
 function showNonLabsProfiles() {
   const nonLabsProfiles = getNonLabsProfiles();
   const entries = Object.entries(nonLabsProfiles);
 
   if (entries.length === 0) {
-    console.log(chalk.green('Semua profile memiliki URL labs.google yang valid.\n'));
+    console.log(chalk.green('Semua profile memiliki URL Flow (labs.google / flow.google) yang valid.\n'));
     return;
   }
 
-  console.log(chalk.yellow('⚠️  Profile dengan finalUrl bukan labs.google:'));
+  console.log(chalk.yellow('⚠️  Profile dengan finalUrl tidak valid (bukan labs.google / flow.google):'));
   for (const [profile, details] of entries) {
     console.log(`  - ${profile}: ${details.finalUrl}`);
   }

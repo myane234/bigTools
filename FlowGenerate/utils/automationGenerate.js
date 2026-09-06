@@ -208,10 +208,63 @@ export async function handleAllPopupsWithAIFallback(page) {
 }
 
 /**
+ * Buka link project dan klik "Download project"
+ */
+export async function downloadProject(page, projectUrl) {
+  try {
+    console.log(`📌 Mengakses URL project untuk mengunduh: ${projectUrl}`);
+    if (projectUrl && page.url() !== projectUrl) {
+      await page.goto(projectUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await page.waitForTimeout(3000);
+    }
+
+    // 1. Klik ikon menu / ripple / opsi project
+    const moreOptionsSelectors = [
+      'button:has(mat-icon:has-text("more_vert"))',
+      'button:has(.mdc-icon-button__ripple)',
+      'button[aria-label*="Opsi"]',
+      'button[aria-label*="More"]',
+      'button[aria-label*="options"]',
+    ];
+
+    let opened = false;
+    for (const sel of moreOptionsSelectors) {
+      const btn = page.locator(sel).first();
+      if (await btn.count() > 0 && await btn.isVisible()) {
+        await btn.click().catch(() => {});
+        await page.waitForTimeout(1000);
+        opened = true;
+        break;
+      }
+    }
+
+    // 2. Klik "Download project"
+    const downloadItem = page.locator('.label:has-text("Download project"), .item-text:has-text("Download project"), span:has-text("Download project")').first();
+    if (await downloadItem.count() > 0 && await downloadItem.isVisible()) {
+      console.log('⬇️ Mengklik "Download project"...');
+      await downloadItem.click().catch(() => {});
+      await page.waitForTimeout(3000);
+    } else {
+      const downloadMenu = page.getByRole('menuitem', { name: /Download project|Download/i }).first();
+      if (await downloadMenu.count() > 0 && await downloadMenu.isVisible()) {
+        console.log('⬇️ Mengklik menu Download project...');
+        await downloadMenu.click().catch(() => {});
+        await page.waitForTimeout(3000);
+      }
+    }
+  } catch (err) {
+    console.warn(`⚠️ Gagal download project: ${err.message}`);
+  }
+}
+
+/**
  * Generate gambar dengan batch prompt
  */
 export async function generate(page, profile, prompts, saveDir, expectedCount = 3, timeoutMs = 60000) {
   let successCount = 0;
+  let finalUrl = '';
+  let quotaReached = false;
+
   try {
     // Tangani popup consent / privacy + AI fallback
     await handleAllPopupsWithAIFallback(page);
@@ -224,12 +277,17 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
     console.log('Click Project baru berhasil');
 
     await page.keyboard.press('Escape');
+    await delay(3000);
+
+    // Simpan URL project pengerjaan
+    finalUrl = page.url();
+    console.log(`📌 URL Project tersimpan: ${finalUrl}`);
 
     // Cek dan sesuaikan Agent Mode & Pengaturan Canvas
     await ensureAgentModeDisabled(page);
     await ensureCanvasSettings(page);
 
-    await delay(6000);
+    await delay(3000);
 
     // Satu listener untuk semua prompts dalam session ini
     const listener = attachFlowListener(page, saveDir);
@@ -287,11 +345,17 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
     }
 
     listener.stop();
-    return successCount;
+
+    // Mengunduh project saat semua prompt untuk profile ini sudah selesai
+    if (finalUrl) {
+      await downloadProject(page, finalUrl);
+    }
+
+    return { successCount, finalUrl, quotaReached };
   } catch (err) {
     console.error('Error di generate:', err);
     await page.screenshot({ path: `${testingGambarPath}/${profile}_error.png` });
-    return successCount;
+    return { successCount, finalUrl: finalUrl || page.url(), quotaReached };
   }
 }
 

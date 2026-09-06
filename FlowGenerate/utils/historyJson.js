@@ -21,15 +21,17 @@ function today() {
 
 function updateProfileStatus(profile, finalUrl) {
   const status = readProfileStatus();
-  const isLabsFlowUrl =
-    typeof finalUrl === 'string' && finalUrl.startsWith('https://labs.google/fx');
+  // Validasi URL Flow: mendukung labs.google/fx maupun flow.google.com
+  const isValidFlowUrl =
+    typeof finalUrl === 'string' &&
+    (finalUrl.startsWith('https://labs.google/fx') || finalUrl.startsWith('https://flow.google.com'));
 
-  if (finalUrl && !isLabsFlowUrl) {
+  if (finalUrl && !isValidFlowUrl) {
     status[profile] = {
       finalUrl,
       lastUpdate: new Date().toLocaleString('id-ID'),
     };
-    console.warn(`⚠️ Profile '${profile}' memiliki finalUrl bukan labs.google: ${finalUrl}`);
+    console.warn(`⚠️ Profile '${profile}' memiliki finalUrl tidak valid: ${finalUrl}`);
   } else {
     delete status[profile];
   }
