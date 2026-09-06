@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { identifyPopup, askVision } from './aiAgent.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,9 +26,89 @@ function checkDir(dirPath) {
 }
 
 /**
+ * Tangani Agent mode toggle chip
+ * Jika aria-pressed="true", klik agar menjadi false
+ */
+export async function ensureAgentModeDisabled(page) {
+  try {
+    const agentBtn = page.locator('button.agent-mode-chip, button:has-text("Agent")').first();
+    if (await agentBtn.count() > 0) {
+      const isPressed = await agentBtn.getAttribute('aria-pressed');
+      if (isPressed === 'true') {
+        console.log('🤖 Agent mode aktif (aria-pressed="true"), menonaktifkan...');
+        await agentBtn.click();
+        await page.waitForTimeout(500);
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Gagal mengecek/menonaktifkan Agent mode:', err.message);
+  }
+}
+
+/**
+ * Tangani Pengaturan Canvas (Image vs Video, 16:9, Nano Banana Pro, x2)
+ */
+export async function ensureCanvasSettings(page) {
+  try {
+    const summaryBtn = page.locator('.settings-summary, button:has(.settings-summary)').first();
+
+    if (await summaryBtn.count() > 0 && await summaryBtn.isVisible()) {
+      const summaryText = await summaryBtn.innerText().catch(() => '');
+
+      // Jika masih dalam mode Video atau tidak sesuai
+      if (summaryText.includes('Video') || !summaryText.includes('Image')) {
+        console.log('🎨 Mengubah pengaturan canvas ke Image, 16:9, Nano Banana Pro, x2...');
+        await summaryBtn.click();
+        await page.waitForTimeout(1000);
+
+        // Pilih toggle Image jika saat ini Video
+        const imageToggle = page.locator('.toggle-text:has-text("Image"), span:has-text("Image")').first();
+        if (await imageToggle.count() > 0 && await imageToggle.isVisible()) {
+          await imageToggle.click();
+          await page.waitForTimeout(500);
+        }
+
+        // Tutup modal / simpan jika ada tombol simpan atau klik di luar
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.waitForTimeout(500);
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Gagal menyesuaikan pengaturan canvas:', err.message);
+  }
+}
+
+/**
+ * Menunggu proses generasi selesai
+ * Menggunakan gabungan selector DOM (<flow-pending-tile>) & polling media URL
+ */
+export async function waitForPendingGeneration(page, timeoutMs = 90000) {
+  const startTime = Date.now();
+  console.log('⏳ Menunggu proses gambar (<flow-pending-tile>) selesai...');
+
+  while (Date.now() - startTime < timeoutMs) {
+    const pendingTile = page.locator('flow-pending-tile').first();
+    const isPending = await pendingTile.count() > 0 && await pendingTile.isVisible();
+
+    if (!isPending) {
+      console.log('✅ Proses generasi gambar selesai!');
+      return true;
+    }
+
+    const percentage = await page.locator('.loading-percentage').first().innerText().catch(() => '');
+    if (percentage) {
+      console.log(`⏳ Generasi berlangsung: ${percentage}`);
+    }
+
+    await delay(2000);
+  }
+
+  console.warn('⏱️ Timeout menunggu generasi selesai.');
+  return false;
+}
+
+/**
  * Scan DOM secara polling untuk menangkap gambar yang sudah muncul
- * @param {object} page - Playwright page
- * @param {string} saveDir - folder penyimpanan gambar
  */
 export function attachFlowListener(page, saveDir = './Hasil') {
   const seenUrls = new Set();
@@ -39,6 +120,9 @@ export function attachFlowListener(page, saveDir = './Hasil') {
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs && currentPromptSaved < targetCount) {
+      // Tunggu tile pending selesai jika ada
+      await waitForPendingGeneration(page, 15000).catch(() => {});
+
       // Scroll ke bawah agar gambar ter-render
       await page.evaluate(() => window.scrollBy(0, window.innerHeight));
       await delay(2000);
@@ -102,22 +186,35 @@ export function attachFlowListener(page, saveDir = './Hasil') {
 }
 
 /**
+ * Handle Popups dengan Selector + Fallback AI Vision Qwen2.5
+ */
+export async function handleAllPopupsWithAIFallback(page) {
+  // 1. Cek dengan selector biasa
+  await handleInitialPopups(page).catch(err => console.warn('handleInitialPopups error:', err.message));
+
+  // 2. Cek AI Vision untuk memastikan tidak ada popup tak terduga yang nutupin
+  try {
+    const popupType = await identifyPopup(page);
+    if (popupType !== 'none' && popupType !== 'other') {
+      console.log(`🤖 AI mendeteksi popup tertinggal: ${popupType}. Mencoba penanganan otomatis...`);
+      if (popupType === 'privacy_policy' || popupType === 'consent' || popupType === 'welcome') {
+        await handleInitialPopups(page).catch(() => {});
+        await page.keyboard.press('Escape').catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Gagal menjalankan AI vision popup fallback:', err.message);
+  }
+}
+
+/**
  * Generate gambar dengan batch prompt
- * @param {object} page - Playwright page
- * @param {string} profile - nama profile
- * @param {string[]} prompts - array of prompts
- * @param {string} saveDir - folder penyimpanan gambar
- * @param {number} expectedCount - target jumlah gambar per prompt
- * @param {number} timeoutMs - batas waktu tunggu (ms)
- * @returns {Promise<number>} - jumlah prompt yang berhasil
  */
 export async function generate(page, profile, prompts, saveDir, expectedCount = 3, timeoutMs = 60000) {
   let successCount = 0;
   try {
-    // Tangani popup consent / privacy
-    await handleInitialPopups(page).catch(err =>
-      console.warn('handleInitialPopups error:', err.message),
-    );
+    // Tangani popup consent / privacy + AI fallback
+    await handleAllPopupsWithAIFallback(page);
 
     await page.evaluate(() => {
       const btn = [...document.querySelectorAll('button')]
@@ -128,54 +225,9 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
 
     await page.keyboard.press('Escape');
 
-    // Handle aria-pressed / aria-disabled yang mungkin mengganggu
-    try {
-      const selectors = ['[aria-pressed="true"]', '[aria-disabled="true"]'];
-      for (const sel of selectors) {
-        const locator = page.locator(sel);
-        const count = await locator.count();
-        for (let i = 0; i < count; i++) {
-          const el = locator.nth(i);
-          const tag = await el.evaluate(node => node.tagName);
-          console.log(`Detected ${sel} on <${tag}> — attempting to toggle/enable`);
-
-          let clicked = false;
-          try {
-            await el.click({ force: true });
-            clicked = true;
-          } catch {
-            try {
-              const handle = await el.elementHandle();
-              if (handle) {
-                await page.evaluate((node) => {
-                  const ev = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true });
-                  node.dispatchEvent(ev);
-                }, handle);
-                clicked = true;
-              }
-            } catch (evErr) {
-              console.warn('Fallback dispatch click failed:', evErr.message);
-            }
-          }
-
-          await page.waitForTimeout(300);
-
-          const attrName = sel.includes('pressed') ? 'aria-pressed' : 'aria-disabled';
-          const current = await el.getAttribute(attrName);
-          if (current === 'true') {
-            try {
-              const handle = await el.elementHandle();
-              if (handle) await page.evaluate((node, name) => node.setAttribute(name, 'false'), handle, attrName);
-              console.log(`Forced ${attrName} to false via JS`);
-            } catch (setErr) {
-              console.warn(`Failed to force ${attrName} to false:`, setErr.message);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Error toggling stateful buttons:', e.message);
-    }
+    // Cek dan sesuaikan Agent Mode & Pengaturan Canvas
+    await ensureAgentModeDisabled(page);
+    await ensureCanvasSettings(page);
 
     await delay(6000);
 
@@ -191,6 +243,9 @@ export async function generate(page, profile, prompts, saveDir, expectedCount = 
       }
 
       console.log(`\n▶️ Memproses prompt ${i + 1}/${prompts.length}: ${prompt.substring(0, 60)}...`);
+
+      // Pastikan Agent Mode mati sebelum mengetik prompt
+      await ensureAgentModeDisabled(page);
 
       await page.waitForSelector(textBox, { visible: true });
 
