@@ -1,6 +1,6 @@
 /**
  * updater.js (ESM)
- * Auto-updater dari branch Cli - cek via latest commit SHA
+ * Auto-updater tanpa Git: download zipball dari private GitHub repository.
  */
 
 import https from "https";
@@ -12,15 +12,16 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const PROJECT_DIR = path.resolve(__dirname, "..");
 
 // ================================================================
 // KONFIGURASI
 // ================================================================
 const CONFIG = {
   GITHUB_OWNER: "myane234",
-  GITHUB_REPO:  "automation_server",
-  GITHUB_TOKEN: "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",   // ganti dengan token lo
-  BRANCH:       "Cli",
+  GITHUB_REPO:  "bigTools",
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN || "",
+  BRANCH:       process.env.GITHUB_BRANCH || "main",
 
   // File yang TIDAK akan di-overwrite saat update
   PROTECTED: [
@@ -33,7 +34,7 @@ const CONFIG = {
 };
 // ================================================================
 
-const VERSION_FILE = path.join(__dirname, ".version");
+const VERSION_FILE = path.join(PROJECT_DIR, ".version");
 const TEMP_DIR     = path.join(os.tmpdir(), "automation-update-temp");
 
 function getSavedSHA() {
@@ -132,6 +133,11 @@ function copyRecursive(src, dest, protectedList) {
 }
 
 export async function checkAndUpdate() {
+  if (!CONFIG.GITHUB_TOKEN.trim()) {
+    console.warn("[Updater] GITHUB_TOKEN belum dikonfigurasi. Skip update.");
+    return false;
+  }
+
   const savedSHA = getSavedSHA();
   console.log(`\n[Updater] SHA tersimpan : ${savedSHA ? savedSHA.slice(0, 7) : "(belum ada)"}`);
   console.log(`[Updater] Mengecek commit terbaru di branch "${CONFIG.BRANCH}"...`);
@@ -191,7 +197,7 @@ export async function checkAndUpdate() {
   const extractedFolder = path.join(TEMP_DIR, extractedItems[0]);
 
   console.log("[Updater] Menyalin file baru (skip file protected)...");
-  copyRecursive(extractedFolder, __dirname, CONFIG.PROTECTED);
+  copyRecursive(extractedFolder, PROJECT_DIR, CONFIG.PROTECTED);
 
   // Simpan SHA terbaru
   fs.writeFileSync(VERSION_FILE, latestSHA, "utf8");

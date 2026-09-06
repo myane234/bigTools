@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { spawn } from 'child_process';
+import os from 'os';
 import readline from 'readline/promises';
 import { stdin as input, stdout as output } from 'process';
 import { env } from './automation_server/utils/CliAsk/inputEnv.js';
@@ -14,8 +15,7 @@ import { openSharedFlowInAllProfiles } from './FlowGenerate/index.js';
 import { CrudPrompt, promptGroqSelector } from './utils/prompt.js';
 import { manageProfiles } from './utils/BuatChrome.js';
 import { getNonLabsProfiles } from './FlowGenerate/utils/historyJson.js';
-
-const APP_PASSWORD = 'faruqganteng';
+import { checkAndUpdate } from './automation_server/updater.js';
 
 function createInterface() {
   return readline.createInterface({ input, output });
@@ -29,17 +29,24 @@ async function authenticate() {
   console.log(chalk.cyan.bold('   SECURITY AUTHENTICATION   '));
   console.log(chalk.cyan.bold('=============================\n'));
 
-  const rl = createInterface();
-  const password = await rl.question('Masukkan Password CLI: ');
-  rl.close();
-
-  if (password === APP_PASSWORD) {
+  const hostname = os.hostname();
+  const authorizeUrl = process.env.CLIENT_API_URL || 'https://yagitudehhguajuga.faaruq.com/client/authorize';
+  try {
+    const response = await fetch(authorizeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostname }),
+    });
+    if (response.ok) {
     console.log(chalk.green('\nAccess Granted! Membuka menu...\n'));
     showNonLabsProfiles();
     await new Promise(resolve => setTimeout(resolve, 1000));
     return true;
-  } else {
-    console.log(chalk.red('\nPassword salah! Akses ditolak.\n'));
+    }
+    console.log(chalk.red(`\nAkses ditolak oleh API (HTTP ${response.status}).\n`));
+    process.exit(1);
+  } catch (error) {
+    console.log(chalk.red(`\nAPI authorization tidak dapat dihubungi: ${error.message}\n`));
     process.exit(1);
   }
 }
@@ -72,14 +79,14 @@ async function mainMenu() {
 =============================
 `),
   );
-  console.log('[1] Input API');
+  // console.log('[1] Input API');
   console.log('[2] Start Automation');
-  console.log('[3] Start Groq + FlowGenerate');
-  console.log('[4] Test API Keys');
-  console.log('[5] Generate Just Flow');
+  console.log('[3] Generate Prompt dari folder Download + Generate gambar');
+  console.log('[4] Test Koneksi');
+  console.log('[5] Hanya buat gambar');
   console.log('[6] Edit isi Prompt');
-  console.log('[7] Manajemen Chrome Profiles');
-  console.log('[8] Buka Shared Flow di Semua Profile');
+  console.log('[7] Manajemen Profiles');
+  // console.log('[8] Buka Shared Flow di Semua Profile');
   console.log('[0] Exit\n');
 
   const rl = createInterface();
@@ -87,9 +94,9 @@ async function mainMenu() {
   rl.close();
 
   switch (choice) {
-    case '1':
-      await env();
-      break;
+    // case '1':
+    //   await env();
+    //   break;
 
     case '2': {
       const prompt1 = await promptGroqSelector();
@@ -127,9 +134,9 @@ async function mainMenu() {
       await manageProfiles();
       break;
 
-    case '8':
-      await openSharedFlowInAllProfiles();
-      break;
+    // case '8':
+    //   await openSharedFlowInAllProfiles();
+    //   break;
 
     case '0':
       console.log(chalk.red('\nBye bro 👋\n'));
@@ -191,6 +198,7 @@ function runScript(command, args = []) {
 // ─── Entry Point ─────────────────────────────────────────────────────────────
 
 async function init() {
+  await checkAndUpdate();
   await authenticate();
   await mainMenu();
 }
