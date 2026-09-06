@@ -218,13 +218,13 @@ export async function downloadProject(page, projectUrl) {
       await page.waitForTimeout(3000);
     }
 
-    // 1. Klik ikon menu / ripple / opsi project
+    // 1. Klik tombol "More options" di dalam container tools-button-group / flow-more-options-menu
     const moreOptionsSelectors = [
-      'button:has(mat-icon:has-text("more_vert"))',
-      'button:has(.mdc-icon-button__ripple)',
-      'button[aria-label*="Opsi"]',
-      'button[aria-label*="More"]',
-      'button[aria-label*="options"]',
+      'flow-more-options-menu button',
+      '.tools-button-group flow-more-options-menu button',
+      'button[aria-label="More options"]',
+      'button[aria-label="Opsi lainnya"]',
+      '.tools-button-group button:has(mat-icon:has-text("more_vert"))',
     ];
 
     let opened = false;
