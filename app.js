@@ -1,114 +1,67 @@
-import chalk from "chalk";
-import { spawn } from "child_process";
-import readline from "readline/promises";
-import { stdin as input, stdout as output } from "process";
-import { env } from "./automation_server/utils/CliAsk/inputEnv.js";
+import chalk from 'chalk';
+import { spawn } from 'child_process';
+import readline from 'readline/promises';
+import { stdin as input, stdout as output } from 'process';
+import { env } from './automation_server/utils/CliAsk/inputEnv.js';
 import {
   main,
   startGroqNFlowGenerate,
   GenerateJustFlow,
-} from "./automation_server/index.js";
-import { setPrompt } from "./automation_server/utils/groq/getPromptvalue.js";
-import GroqAi from "./automation_server/utils/groq/groqAi.js";
-import { start } from "repl";
-import {
-  openProfiles,
-  openSharedFlowInAllProfiles,
-} from "./FlowGenerate/index.js";
-import { CrudPrompt, promptGroqSelector } from "./utils/prompt.js";
-import { manageProfiles } from "./utils/BuatChrome.js";
-import { getNonLabsProfiles } from "./FlowGenerate/utils/historyJson.js";
+} from './automation_server/index.js';
+import { setPrompt } from './automation_server/utils/groq/getPromptvalue.js';
+import GroqAi from './automation_server/utils/groq/groqAi.js';
+import { openSharedFlowInAllProfiles } from './FlowGenerate/index.js';
+import { CrudPrompt, promptGroqSelector } from './utils/prompt.js';
+import { manageProfiles } from './utils/BuatChrome.js';
+import { getNonLabsProfiles } from './FlowGenerate/utils/historyJson.js';
 
-const promptMap = {
-  1: `
-Analyze the provided image. Your task is to generate metadata for a new Vectors artwork inspired by the image.
-The output MUST be a valid JSON object with: "prompt".
-
-1.  **prompt**: A highly detailed and descriptive prompt for generating the new Vector. This prompt should be inspired by the subject and composition of the provided image, but reimagined in a vector style. The prompt must describe a vector/illustration, not a photo. It should cover the main subject, background elements, composition, color palette, lighting, and overall mood. Aim for a rich, multi-sentence description. Example: "A detailed flat vector illustration of a joyful golden retriever puppy sitting on a lush green lawn. The puppy has a friendly expression, with its tongue slightly out. The background features a clear blue sky with a few fluffy white clouds. The style is clean and modern, with bold outlines and a vibrant color palette."
-
-Example output for a photo of a real dog:
-{
-  "prompt": "A detailed flat vector illustration of a joyful golden retriever puppy sitting on a lush green lawn. The puppy has a friendly expression, with its tongue slightly out. The background features a clear blue sky with a few fluffy white clouds. The style is clean and modern, with bold outlines and a vibrant color palette.",
-}
-
-Do not include any other text, comments, or markdown formatting like \`\`\`json. The output must be ONLY the JSON object.
-  `,
-  2: `
-Analyze the provided image. Your task is to generate metadata for a new Vectors artwork inspired by the image.
-The output MUST be a valid JSON object with: "prompt".
-
-1. prompt: A highly detailed prompt for generating a **vector silhouette illustration** inspired by the main subject of the image but creatively reimagined. The design must include **ONLY the main subject as a solid black silhouette**. Remove all decorative elements, props, and background objects from the original image. Use **pure black silhouette shapes with no internal details, shading, or textures**, placed on a **plain white background**. Focus only on the primary object and describe its pose or shape clearly in a clean minimal vector style.
-
-Example output:
-{
-  "prompt": "A minimal flat vector silhouette of a sitting dog, shown as a solid pure black shape with no internal details or textures. The dog is centered in the composition with a clean and balanced pose. The design uses strong contrast with a pure white background, creating a simple modern black and white silhouette vector style."
-}
-
-Do not include any other text. Output ONLY the JSON object. Avoid making it identical to the original image; keep similarity around 80% while creatively reimagining the subject.`,
-};
-
-const APP_PASSWORD = "faruqganteng";
+const APP_PASSWORD = 'faruqganteng';
 
 function createInterface() {
   return readline.createInterface({ input, output });
 }
 
+// ─── Authentication ───────────────────────────────────────────────────────────
+
 async function authenticate() {
   console.clear();
-  console.log(chalk.cyan.bold(`\n=============================`));
-  console.log(chalk.cyan.bold(`   SECURITY AUTHENTICATION   `));
-  console.log(chalk.cyan.bold(`=============================\n`));
+  console.log(chalk.cyan.bold('\n============================='));
+  console.log(chalk.cyan.bold('   SECURITY AUTHENTICATION   '));
+  console.log(chalk.cyan.bold('=============================\n'));
 
   const rl = createInterface();
-  const password = await rl.question("Masukkan Password CLI: ");
+  const password = await rl.question('Masukkan Password CLI: ');
   rl.close();
 
   if (password === APP_PASSWORD) {
-    console.log(chalk.green("\nAccess Granted! Membuka menu...\n"));
+    console.log(chalk.green('\nAccess Granted! Membuka menu...\n'));
     showNonLabsProfiles();
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     return true;
   } else {
-    console.log(chalk.red("\nPassword salah! Akses ditolak.\n"));
+    console.log(chalk.red('\nPassword salah! Akses ditolak.\n'));
     process.exit(1);
   }
 }
 
+// Tampilkan profile yang URL-nya bukan labs.google (perlu diperhatikan)
 function showNonLabsProfiles() {
   const nonLabsProfiles = getNonLabsProfiles();
   const entries = Object.entries(nonLabsProfiles);
 
   if (entries.length === 0) {
-    console.log(chalk.green("Tidak ada profile dengan finalUrl di luar labs.google.\n"));
+    console.log(chalk.green('Semua profile memiliki URL labs.google yang valid.\n'));
     return;
   }
 
-  console.log(chalk.yellow("⚠️ Profile dengan finalUrl bukan labs.google:"));
+  console.log(chalk.yellow('⚠️  Profile dengan finalUrl bukan labs.google:'));
   for (const [profile, details] of entries) {
-    console.log(`- ${profile}: ${details.finalUrl}`);
+    console.log(`  - ${profile}: ${details.finalUrl}`);
   }
   console.log();
 }
 
-async function askGeneratejustFlow() {
-  console.log(
-    chalk.yellow(
-      "\n⚠️  Generate Just Flow akan menghasilkan flow tanpa gambar. Pastikan untuk menggunakan prompt yang sesuai untuk hasil terbaik.\n",
-    ),
-  );
-  const rl = createInterface();
-  try {
-    while (true) {
-      const pathJson = await rl.question(
-        "Masukkan path folder output yang berisi hasil.json (contoh: ./output): ",
-      );
-      if (pathJson.trim()) return pathJson.trim();
-      console.log("Path tidak boleh kosong!");
-    }
-  } finally {
-    rl.close();
-  }
-}
+// ─── Main Menu ────────────────────────────────────────────────────────────────
 
 async function mainMenu() {
   console.clear();
@@ -119,86 +72,123 @@ async function mainMenu() {
 =============================
 `),
   );
-  console.log("[1] Input API");
-  console.log("[2] Start Automation");
-  console.log("[3] Start Groq NFlowGenerate");
-  console.log("[4] Test API Keys");
-  console.log("[5] Generate Just Flow");
-  console.log("[7] Edit isi Prompt");
-  console.log("[8] Manajemen Chrome profiles");
-  console.log("[9] Buka shared Flow di semua profile");
-  console.log("[0] Exit\n");
+  console.log('[1] Input API');
+  console.log('[2] Start Automation');
+  console.log('[3] Start Groq + FlowGenerate');
+  console.log('[4] Test API Keys');
+  console.log('[5] Generate Just Flow');
+  console.log('[6] Edit isi Prompt');
+  console.log('[7] Manajemen Chrome Profiles');
+  console.log('[8] Buka Shared Flow di Semua Profile');
+  console.log('[0] Exit\n');
+
   const rl = createInterface();
-  const choice = (await rl.question("Pilih mode: ")).trim();
+  const choice = (await rl.question('Pilih mode: ')).trim();
   rl.close();
 
   switch (choice) {
-    case "1":
+    case '1':
       await env();
       break;
-    case "2":
-      const prompt1 = await promptGroqSelector(); // ambil 1x
-      setPrompt(prompt1);
-      await main();
+
+    case '2': {
+      const prompt1 = await promptGroqSelector();
+      if (prompt1) {
+        setPrompt(prompt1);
+        await main();
+      }
       break;
-    case "3":
+    }
+
+    case '3': {
       const prompt2 = await promptGroqSelector();
-      setPrompt(prompt2);
-      await startGroqNFlowGenerate();
+      if (prompt2) {
+        setPrompt(prompt2);
+        await startGroqNFlowGenerate();
+      }
       break;
-    case "4":
+    }
+
+    case '4':
       await GroqAi.testApi();
       break;
-    case "5":
-      const pathHasilJson = await askGeneratejustFlow();
+
+    case '5': {
+      const pathHasilJson = await askGenerateJustFlow();
       await GenerateJustFlow(pathHasilJson);
       break;
-    case "6":
-      await openProfiles();
-      break;
-    case "7":
+    }
+
+    case '6':
       await CrudPrompt();
       break;
-    case "8":
+
+    case '7':
       await manageProfiles();
       break;
-    case "9":
+
+    case '8':
       await openSharedFlowInAllProfiles();
       break;
-    case "0":
-      console.log(chalk.red("\nBye bro 👋\n"));
+
+    case '0':
+      console.log(chalk.red('\nBye bro 👋\n'));
       process.exit(0);
+
     default:
-      console.log(chalk.red("\nPilihan tidak valid!\n"));
+      console.log(chalk.red('\nPilihan tidak valid!\n'));
   }
 
   await pause();
   await mainMenu();
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async function askGenerateJustFlow() {
+  console.log(
+    chalk.yellow(
+      '\n⚠️  Generate Just Flow menghasilkan flow tanpa gambar.\n',
+    ),
+  );
+  const rl = createInterface();
+  try {
+    while (true) {
+      const pathJson = await rl.question(
+        'Masukkan path folder output yang berisi hasil.json (contoh: ./output): ',
+      );
+      if (pathJson.trim()) return pathJson.trim();
+      console.log('Path tidak boleh kosong!');
+    }
+  } finally {
+    rl.close();
+  }
+}
+
 async function pause() {
   const rl = createInterface();
-  await rl.question("Tekan Enter untuk kembali ke menu...");
+  await rl.question('Tekan Enter untuk kembali ke menu...');
   rl.close();
 }
 
 function checkEnv() {
-  const groqKeys = process.env.API_KEY;
-
-  if (!groqKeys?.trim()) {
-    console.log(chalk.red("\nENV belum lengkap!"));
-    console.log(chalk.red(`Input API terlebih dahulu melalui menu [1]`));
+  const apiKey = process.env.API_KEY;
+  if (!apiKey?.trim()) {
+    console.log(chalk.red('\nENV belum lengkap!'));
+    console.log(chalk.red('Input API terlebih dahulu melalui menu [1]'));
     return false;
   }
 }
 
 function runScript(command, args = []) {
-  return new Promise((resolve) => {
-    console.log(chalk.gray(`\nMenjalankan: ${command} ${args.join(" ")}\n`));
-    const child = spawn(command, args, { stdio: "inherit", shell: true });
-    child.on("close", resolve);
+  return new Promise(resolve => {
+    console.log(chalk.gray(`\nMenjalankan: ${command} ${args.join(' ')}\n`));
+    const child = spawn(command, args, { stdio: 'inherit', shell: true });
+    child.on('close', resolve);
   });
 }
+
+// ─── Entry Point ─────────────────────────────────────────────────────────────
 
 async function init() {
   await authenticate();

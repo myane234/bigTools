@@ -1,16 +1,15 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const textBox = 'textarea[placeholder^="Paste JSON array"]';
-const testingGambarPath = "./GambarTesting";
-const hasilPath = "./Hasil";
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const textBox = '[contenteditable="true"]';
+const testingGambarPath = './GambarTesting';
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const flowImageUrlMarker = "flow-content.google/image";
+const flowApiMarker = '/fx/api/trpc/media.getMediaUrlRedirect';
 
 function checkDir(dirPath) {
   try {
@@ -25,316 +24,266 @@ function checkDir(dirPath) {
   }
 }
 
-async function waitForImage(page) {
-  try {
-    const appFrame = page.frameLocator('iframe[title="Applet preview"]');
-    const generatingLocator = appFrame.locator("span", {
-      hasText: "Generating",
-    });
+/**
+ * Scan DOM secara polling untuk menangkap gambar yang sudah muncul
+ * @param {object} page - Playwright page
+ * @param {string} saveDir - folder penyimpanan gambar
+ */
+export function attachFlowListener(page, saveDir = './Hasil') {
+  const seenUrls = new Set();
+  let savedCount = 0;
+  const savedFiles = [];
 
-    // Locator untuk mendeteksi notifikasi kuota habis
-    const quotaErrorLocator = appFrame.getByText(
-      /Anda telah mencapai batas kuota/i,
-    );
-
-    await generatingLocator
-      .first()
-      .waitFor({ state: "visible", timeout: 5000 })
-      .catch(() =>
-        console.log(
-          "Proses sangat cepat atau gagal mulai, tidak mendeteksi tulisan Generating",
-        ),
-      );
-
-    console.log("⏳ Menunggu proses generasi selesai...");
-
+  const waitForImages = async (targetCount, timeoutMs = 60000) => {
+    let currentPromptSaved = 0;
     const startTime = Date.now();
-    while (true) {
-      // --- CEK ERROR KUOTA ---
-      // 1. Cek di dalam iframe
-      if ((await quotaErrorLocator.count()) > 0 ||
-        (await appFrame.getByText(/Kuota Agen Alat habis/i).count()) > 0 ||
-        (await page.getByText(/Anda telah mencapai batas kuota|Kuota Agen Alat habis/i).count()) > 0) {
-        console.log("🚨 Peringatan: Kuota Agen Alat habis!");
-        return { success: false, quotaReached: true };
+
+    while (Date.now() - startTime < timeoutMs && currentPromptSaved < targetCount) {
+      // Scroll ke bawah agar gambar ter-render
+      await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+      await delay(2000);
+
+      // Cari element gambar di DOM
+      const imgLocators = await page.$$(`img[src*="${flowApiMarker}"]`);
+      for (const img of imgLocators) {
+        const src = await page.evaluate(el => el.src, img);
+        if (src && !seenUrls.has(src)) {
+          seenUrls.add(src);
+
+          try {
+            const base64 = await page.evaluate(async (imgSrc) => {
+              const res = await fetch(imgSrc);
+              const blob = await res.blob();
+              return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+              });
+            }, src);
+
+            if (base64) {
+              const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+              const buffer = Buffer.from(base64Data, 'base64');
+
+              const urlObj = new URL(src);
+              const mediaId = urlObj.searchParams.get('name') || Date.now().toString();
+
+              checkDir(saveDir);
+              const filePath = path.join(saveDir, `${mediaId}.png`);
+              fs.writeFileSync(filePath, buffer);
+
+              savedCount++;
+              currentPromptSaved++;
+              savedFiles.push(filePath);
+              console.log(`[Flow] ✅ Tersimpan: ${filePath}`);
+
+              if (currentPromptSaved >= targetCount) break;
+            }
+          } catch (err) {
+            console.error(`[Flow] ❌ Gagal download image dari DOM:`, err.message);
+          }
+        }
       }
 
-      // 2. Cek di halaman utama (jaga-jaga jika toast muncul di luar iframe)
-      if (
-        (await page.getByText(/Anda telah mencapai batas kuota/i).count()) > 0
-      ) {
-        console.log("🚨 Peringatan: Kuota Agen Alat habis!");
-        return { success: false, quotaReached: true };
-      }
-      // -----------------------
+      if (currentPromptSaved >= targetCount) break;
 
-      // Cek apakah masih generating
-      const count = await generatingLocator.count();
-      if (count === 0) {
-        break;
-      }
-
-      if (Date.now() - startTime > 90000) {
-        console.log("⏱️ Timeout: Generasi terlalu lama (lebih dari 90 detik).");
-        break;
-      }
-
-      await page.waitForTimeout(1000);
+      // Scroll ke atas lagi
+      await page.evaluate(() => window.scrollBy(0, -window.innerHeight));
+      await delay(2000);
     }
 
-    console.log("✅ Generasi selesai!");
-    return { success: true, quotaReached: false };
-  } catch (err) {
-    console.error("Error saat menunggu proses generasi:", err);
-    return { success: true, quotaReached: false }; // Default lanjut jika error sistem yang tidak diketahui
-  }
+    return { savedCount: currentPromptSaved, savedFiles };
+  };
+
+  const stop = () => {};
+
+  console.log('[Flow] 🟢 DOM Scanner siap');
+  return { waitForImages, stop, getSavedCount: () => savedCount };
 }
 
 /**
  * Generate gambar dengan batch prompt
- * @param {object} page - puppeteer page
+ * @param {object} page - Playwright page
  * @param {string} profile - nama profile
- * @param {string[]} prompts - array of prompts untuk di-type ke Flow
- * @param {string} saveDir - folder untuk menyimpan gambar hasil
+ * @param {string[]} prompts - array of prompts
+ * @param {string} saveDir - folder penyimpanan gambar
  * @param {number} expectedCount - target jumlah gambar per prompt
- * @param {number} timeoutMs - batas waktu tunggu dalam ms
- * @returns {Promise<number>} - jumlah prompt yang berhasil diproses
+ * @param {number} timeoutMs - batas waktu tunggu (ms)
+ * @returns {Promise<number>} - jumlah prompt yang berhasil
  */
-export async function generate(
-  page,
-  profile,
-  prompts,
-  saveDir,
-  expectedCount = 3,
-  timeoutMs = 60000,
-) {
+export async function generate(page, profile, prompts, saveDir, expectedCount = 3, timeoutMs = 60000) {
   let successCount = 0;
-  let finalUrl = "";
-  let quotaReached = false;
   try {
-    // Tangani popup consent / privacy jika muncul sebelum membuat project baru
-    await handleInitialPopups(page).catch((err) =>
-      console.warn("handleInitialPopups error:", err.message),
+    // Tangani popup consent / privacy
+    await handleInitialPopups(page).catch(err =>
+      console.warn('handleInitialPopups error:', err.message),
     );
 
     await page.evaluate(() => {
-      const btn = [...document.querySelectorAll("button")].find(
-        (b) =>
-          b.textContent.includes("Project baru") ||
-          b.textContent.includes("New project"),
-      );
+      const btn = [...document.querySelectorAll('button')]
+        .find(b => b.textContent.includes('Project baru') || b.textContent.includes('New project'));
       btn?.click();
     });
-    console.log("Click berhasil");
+    console.log('Click Project baru berhasil');
 
-    // Tangani welcome slides jika muncul: klik "See what's new", lalu tekan Next sampai tombol Mulai muncul
+    await page.keyboard.press('Escape');
+
+    // Handle aria-pressed / aria-disabled yang mungkin mengganggu
     try {
-      await page.waitForTimeout(800);
+      const selectors = ['[aria-pressed="true"]', '[aria-disabled="true"]'];
+      for (const sel of selectors) {
+        const locator = page.locator(sel);
+        const count = await locator.count();
+        for (let i = 0; i < count; i++) {
+          const el = locator.nth(i);
+          const tag = await el.evaluate(node => node.tagName);
+          console.log(`Detected ${sel} on <${tag}> — attempting to toggle/enable`);
 
-      const seeWhatsNew = page.getByRole("button", {
-        name: /See what'?s new|See what's new/i,
-      });
-      if ((await seeWhatsNew.count()) > 0) {
-        console.log("[Welcome] See what's new detected — clicking");
-        await seeWhatsNew
-          .first()
-          .click()
-          .catch(() => {});
-        await page.waitForTimeout(600);
-      }
+          let clicked = false;
+          try {
+            await el.click({ force: true });
+            clicked = true;
+          } catch {
+            try {
+              const handle = await el.elementHandle();
+              if (handle) {
+                await page.evaluate((node) => {
+                  const ev = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true });
+                  node.dispatchEvent(ev);
+                }, handle);
+                clicked = true;
+              }
+            } catch (evErr) {
+              console.warn('Fallback dispatch click failed:', evErr.message);
+            }
+          }
 
-      // Loop tekan Next sampai tombol Mulai/Start terlihat
-      const startBtnName = /Mulai|Start|Get started|Lanjutkan/i;
-      let attempts = 0;
-      while (attempts < 12) {
-        const startBtn = page
-          .getByRole("button", { name: startBtnName })
-          .first();
-        if ((await startBtn.count()) > 0 && !(await startBtn.isDisabled())) {
-          console.log("[Welcome] Start button detected — clicking");
-          await startBtn.click().catch(() => {});
-          await page.waitForTimeout(700);
-          break;
+          await page.waitForTimeout(300);
+
+          const attrName = sel.includes('pressed') ? 'aria-pressed' : 'aria-disabled';
+          const current = await el.getAttribute(attrName);
+          if (current === 'true') {
+            try {
+              const handle = await el.elementHandle();
+              if (handle) await page.evaluate((node, name) => node.setAttribute(name, 'false'), handle, attrName);
+              console.log(`Forced ${attrName} to false via JS`);
+            } catch (setErr) {
+              console.warn(`Failed to force ${attrName} to false:`, setErr.message);
+            }
+          }
         }
-
-        // cari tombol Next dengan atribut atau aria-label
-        const nextBtn = page
-          .locator(
-            'button[aria-label="Next"], button[data-button="next"], button.nav-btn.next-btn',
-          )
-          .first();
-        if ((await nextBtn.count()) > 0) {
-          console.log("[Welcome] Next button detected — clicking");
-          await nextBtn.click().catch(() => {});
-          await page.waitForTimeout(600);
-          attempts++;
-          continue;
-        }
-
-        // fallback: tombol dengan ikon arrow_forward
-        const arrowBtn = page.getByText("arrow_forward").first();
-        if ((await arrowBtn.count()) > 0) {
-          console.log("[Welcome] Arrow forward detected — clicking");
-          await arrowBtn
-            .first()
-            .click()
-            .catch(() => {});
-          await page.waitForTimeout(600);
-          attempts++;
-          continue;
-        }
-
-        // tidak ada tombol next/start — hentikan
-        break;
       }
     } catch (e) {
-      console.warn("[Welcome] error handling slides:", e.message);
+      console.warn('Error toggling stateful buttons:', e.message);
     }
+
     await delay(6000);
 
-    const projectUrl = page.url();
-    const ToolsUrl = "/tool-version/a82f2baf-ebcd-4e00-b119-2ef077fe44af";
-
-    console.log(`Project URL: ${projectUrl}`);
-
-    finalUrl = projectUrl.replace(/\/$/, "") + ToolsUrl;
-
-    await page.goto(finalUrl, { waitUntil: "networkidle" });
-
-    await delay(6000); // Tunggu 6 detik untuk memastikan UI sudah siap
+    // Satu listener untuk semua prompts dalam session ini
+    const listener = attachFlowListener(page, saveDir);
 
     for (let i = 0; i < prompts.length; i++) {
       let prompt = prompts[i];
 
-      // Pengaman mutlak: pastikan prompt selalu berupa string yang valid
-      if (typeof prompt !== "string") {
-        if (prompt && typeof prompt === "object") {
-          prompt =
-            prompt.prompt ||
-            prompt.text ||
-            Object.values(prompt).find((v) => typeof v === "string") ||
-            "";
-        } else {
-          prompt = String(prompt || "");
-        }
-      }
-
-      if (!prompt || typeof prompt !== "string" || prompt.trim() === "") {
-        console.warn(
-          `⚠️ Prompt ke-${i + 1} kosong atau format tidak valid, melewati...`,
-        );
+      if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
+        console.warn(`⚠️ Prompt ke-${i + 1} kosong, melewati...`);
         continue;
       }
 
-      console.log(
-        `\n▶️ Memproses prompt ${i + 1}/${prompts.length}: ${prompt.substring(0, 60)}...`,
-      );
+      console.log(`\n▶️ Memproses prompt ${i + 1}/${prompts.length}: ${prompt.substring(0, 60)}...`);
 
-      const appFrame = page.frameLocator('iframe[title="Applet preview"]');
+      await page.waitForSelector(textBox, { visible: true });
 
-      // Klik dan isi teks langsung di dalam iframe (Fungsi 'fill' di Playwright otomatis memicu event React)
-      await appFrame.locator(textBox).click();
-      await appFrame.locator(textBox).fill(prompt);
+      await page.click(textBox);
+      await delay(500);
 
+      // Clear textbox
+      await page.keyboard.down('Control');
+      await page.keyboard.press('a');
+      await page.keyboard.up('Control');
+      await page.keyboard.press('Backspace');
+      await delay(500);
+
+      // Ketik prompt
+      await page.keyboard.type(prompt, { delay: 10 });
       await delay(2000);
+      console.log('Typing berhasil');
 
-      // Tekan Enter spesifik pada textarea di dalam iframe
-      await appFrame.locator("button", { hasText: "Create" }).click();
+      await page.keyboard.press('Enter');
 
-      const generationResult = await waitForImage(page);
+      const result = await listener.waitForImages(expectedCount, timeoutMs);
+      console.log(`[Flow] selesai prompt ${i + 1}: ${result.savedCount} file (target ${expectedCount})`);
 
-      // Jika false (karena kuota habis), hentikan perulangan prompt
-      if (!generationResult.success) {
-        quotaReached = generationResult.quotaReached;
-        console.log(
-          `🛑 Menghentikan proses pada profile: ${profile} karena batas kuota.`,
-        );
-        break; // Langsung keluar dari loop for, menuju ke 'return successCount'
+      if (result.savedCount === 0) {
+        console.log(`⚠️ Tidak ada gambar ter-capture untuk prompt ${i + 1}, menghentikan.`);
+        break;
       }
+
+      checkDir(testingGambarPath);
+      await page.screenshot({ path: `${testingGambarPath}/${profile}_p${i + 1}.png` });
+      console.log(`Screenshot berhasil untuk prompt ${i + 1}`);
+
       successCount++;
+
+      if (i < prompts.length - 1) {
+        console.log('⏳ Jeda 1 menit sebelum prompt berikutnya...');
+        await delay(60000);
+      }
     }
 
-    return { successCount, finalUrl, quotaReached };
+    listener.stop();
+    return successCount;
   } catch (err) {
-    console.error("Error di generate:", err);
-    await page.screenshot({
-      path: `${testingGambarPath}/${profile}_error.png`,
-    });
-    return { successCount, finalUrl, quotaReached };
+    console.error('Error di generate:', err);
+    await page.screenshot({ path: `${testingGambarPath}/${profile}_error.png` });
+    return successCount;
   }
 }
 
 async function handleInitialPopups(page) {
-  // small delay to let modal render
   await page.waitForTimeout(800);
 
-  // Consent modal: detect by visible label text instead of auto-generated classes
-  const researchLabel = page.getByText("Saya ingin menerima undangan riset");
-  if ((await researchLabel.count()) > 0) {
-    console.log(
-      "[Popup] Consent modal detected — trying to select research and click Next",
-    );
+  // Consent modal
+  const researchLabel = page.getByText('Saya ingin menerima undangan riset');
+  if (await researchLabel.count() > 0) {
+    console.log('[Popup] Consent modal detected — klik research dan Next');
     try {
-      await researchLabel
-        .first()
-        .click()
-        .catch(() => {});
+      await researchLabel.first().click().catch(() => {});
       await page.waitForTimeout(300);
-
-      const nextBtn = page
-        .getByRole("button", { name: /Berikutnya|Next|Continue/i })
-        .first();
-      if ((await nextBtn.count()) > 0) {
+      const nextBtn = page.getByRole('button', { name: /Berikutnya|Next|Continue/i }).first();
+      if (await nextBtn.count() > 0) {
         await nextBtn.click().catch(() => {});
         await page.waitForTimeout(700);
       }
     } catch (e) {
-      console.warn("[Popup] Failed to handle consent modal:", e.message);
+      console.warn('[Popup] Gagal handle consent modal:', e.message);
     }
   }
 
-  // Privacy policy modal: detect by heading text and scroll reachable ancestor
-  const policyHeading = page.getByRole("heading", {
-    name: /Tinjau kebijakan privasi|Tinjau kebijakan/i,
-  });
-  if ((await policyHeading.count()) > 0) {
-    console.log(
-      "[Popup] Privacy policy modal detected — scrolling until Continue is enabled",
-    );
-    const continueBtn = page
-      .getByRole("button", { name: /Lanjutkan|Continue|Next/i })
-      .first();
-
-    // Scroll ancestor container of the heading until continue enabled or max attempts
+  // Privacy policy modal
+  const policyHeading = page.getByRole('heading', { name: /Tinjau kebijakan privasi|Tinjau kebijakan/i });
+  if (await policyHeading.count() > 0) {
+    console.log('[Popup] Privacy policy modal — scroll sampai Continue aktif');
+    const continueBtn = page.getByRole('button', { name: /Lanjutkan|Continue|Next/i }).first();
     let attempts = 0;
-    while (
-      (await continueBtn.count()) > 0 &&
-      (await continueBtn.isDisabled()) &&
-      attempts < 15
-    ) {
+    while (await continueBtn.count() > 0 && await continueBtn.isDisabled() && attempts < 15) {
       await page.evaluate((headingText) => {
-        const headings = Array.from(document.querySelectorAll("h1,h2,h3"));
-        const h = headings.find(
-          (e) => e.textContent && e.textContent.includes(headingText),
-        );
+        const headings = Array.from(document.querySelectorAll('h1,h2,h3'));
+        const h = headings.find(e => e.textContent && e.textContent.includes(headingText));
         if (!h) return;
         let el = h.parentElement;
-        // climb until find scrollable container
-        while (el && el !== document.body && el.scrollHeight <= el.clientHeight)
-          el = el.parentElement;
-        if (el && el.scrollHeight > el.clientHeight)
-          el.scrollTop = el.scrollHeight;
-      }, "Tinjau kebijakan privasi");
-
+        while (el && el !== document.body && el.scrollHeight <= el.clientHeight) el = el.parentElement;
+        if (el && el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
+      }, 'Tinjau kebijakan privasi');
       await page.waitForTimeout(600);
       attempts++;
     }
 
-    if ((await continueBtn.count()) > 0 && !(await continueBtn.isDisabled())) {
+    if (await continueBtn.count() > 0 && !(await continueBtn.isDisabled())) {
       await continueBtn.click().catch(() => {});
       await page.waitForTimeout(500);
     } else {
-      console.warn("[Popup] Continue button not enabled after scrolling");
+      console.warn('[Popup] Continue button tidak aktif setelah scroll');
     }
   }
 }

@@ -1,21 +1,23 @@
-import { chromium } from "playwright-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import fs from "fs/promises";
-import { generate } from "./utils/automationGenerate.js";
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import fs from 'fs/promises';
+import { generate } from './utils/automationGenerate.js';
 import {
   isProfileQuotaBlocked,
   markProfileQuotaBlocked,
   saveHistory,
-} from "./utils/historyJson.js";
+  getNonLabsProfiles,
+} from './utils/historyJson.js';
 
-export const profiles = (await fs.readdir("D:\\chrome-profiles"))
-  .filter((name) => /^profile\d+$/i.test(name))
-  .sort((a, b) =>
-    a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
-);
+// Baca & filter hanya folder profil yang valid (profile1, profile2, dst.)
+export const profiles = (await fs.readdir('D:\\chrome-profiles'))
+  .filter(name => /^profile\d+$/i.test(name))
+  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
 chromium.use(StealthPlugin());
 console.log(profiles);
+
+// ─── Browser Class ──────────────────────────────────────────────────────────
 
 export class browser {
   constructor() {
@@ -27,45 +29,36 @@ export class browser {
     this.context = await chromium.launchPersistentContext(
       `D:\\chrome-profiles\\${profile}`,
       {
-        executablePath:
-          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
         headless: false,
         ignoreDefaultArgs: [
-          "--enable-automation",
-          "--disable-extensions", // Biarkan ekstensi bawaan Chrome asli tetap jalan agar terlihat manusiawi,
+          '--enable-automation',
+          '--disable-extensions',
         ],
         args: [
-          "--disable-blink-features=AutomationControlled", // Kunci utama menyembunyikan navigator.webdriver
-          "--start-maximized",
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-infobars", // Menghilangkan baris "Chrome sedang dikendalikan..."
-          "--window-position=0,0",
-          "--ignore-certificate-errors",
+          '--disable-blink-features=AutomationControlled',
+          '--start-maximized',
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-infobars',
+          '--window-position=0,0',
+          '--ignore-certificate-errors',
         ],
-        viewport: null, // Pengganti defaultViewport: null di persistent context
+        viewport: null,
       },
     );
 
-    // Di persistent context, kita ambil page pertama langsung dari context
     const pages = this.context.pages();
     this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
 
-    // Provide a Puppeteer-compatible `page.browser()` shim for libraries
-    // (like ghost-cursor) that expect Puppeteer's API.
     try {
       this.page.browser = () => this.context.browser();
     } catch (e) {
-      // ignore if not available
+      // ignore
     }
 
     await this.context.addInitScript(() => {
-      // Hapus penanda webdriver
-      Object.defineProperty(navigator, "webdriver", {
-        get: () => undefined,
-      });
-
-      // Buat mock objek chrome bawaan browser asli agar Google tidak curiga
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
       window.chrome = {
         runtime: {},
         loadTimes: function () {},
@@ -76,64 +69,25 @@ export class browser {
 
   async close() {
     if (this.context) {
-      await new Promise((r) => setTimeout(r, 1000));
-      await this.context.close(); // Menutup context otomatis menutup seluruh browser
+      await new Promise(r => setTimeout(r, 1000));
+      await this.context.close();
       this.context = null;
       this.page = null;
     }
   }
 }
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-function listenForGeneratedImages(page, saveDir, profile) {
-  const pendingDownloads = new Set();
-  const capturedUrls = new Set();
-  let imageNumber = 0;
-
-  const handleResponse = (response) => {
-    const imageUrl = response.url();
-    if (!imageUrl.includes("flow-content.google/image/")) return;
-    if (capturedUrls.has(imageUrl)) return;
-    capturedUrls.add(imageUrl);
-
-    const downloadTask = (async () => {
-      try {
-        if (response.status() < 200 || response.status() >= 300) return;
-
-        const body = await response.body();
-        const contentType = response.headers()["content-type"] || "";
-        const extension = contentType.includes("png")
-          ? "png"
-          : contentType.includes("webp")
-            ? "webp"
-            : contentType.includes("avif")
-              ? "avif"
-              : "jpg";
-        imageNumber++;
-        const filePath = `${saveDir}\\${profile}_image_${imageNumber}.${extension}`;
-        await fs.writeFile(filePath, body);
-        console.log(`🖼️ Gambar tersimpan: ${filePath}`);
-      } catch (err) {
-        console.warn(`⚠️ Gagal menyimpan gambar profile '${profile}': ${err.message}`);
-      }
-    })();
-
-    pendingDownloads.add(downloadTask);
-    downloadTask.finally(() => pendingDownloads.delete(downloadTask));
-  };
-
-  page.on("response", handleResponse);
-
-  return async () => {
-    await Promise.allSettled([...pendingDownloads]);
-    page.off("response", handleResponse);
-  };
-}
+// ─── Generate Image Flow ─────────────────────────────────────────────────────
 
 /**
- * Jalankan generateImageFlow dengan prompt dari hasil.json
+ * Entry point utama: jalankan generateImageFlow dari hasil.json
  * @param {string} outputDir - folder output yang berisi hasil.json
+ * @param {number} promptsPerProfile - prompt per profil (tidak dipakai langsung, untuk referensi)
+ * @param {number} imagesPerPrompt - target jumlah gambar per prompt
+ * @param {number} promptTimeoutMs - batas waktu tunggu gambar (ms)
+ * @param {number} maxConcurrentProfiles - maksimal profile berjalan bersamaan
  */
 export async function generateImageFlow(
   outputDir,
@@ -144,83 +98,28 @@ export async function generateImageFlow(
 ) {
   try {
     const hasilJsonPath = `${outputDir}/hasil.json`;
-    const availableProfiles = profiles.filter(
-      (profile) => !isProfileQuotaBlocked(profile),
-    );
 
-    const blockedProfiles = profiles.filter((profile) =>
-      isProfileQuotaBlocked(profile),
-    );
+    // Filter profil yang tidak sedang diblokir kuota
+    const availableProfiles = profiles.filter(p => !isProfileQuotaBlocked(p));
+    const blockedProfiles = profiles.filter(p => isProfileQuotaBlocked(p));
+
     for (const profile of blockedProfiles) {
-      console.log(`⏭️ Melewati ${profile}: kuota Agen Alat habis hari ini.`);
+      console.log(`⏭️ Melewati ${profile}: kuota habis hari ini.`);
     }
 
     if (availableProfiles.length === 0) {
-      console.log("Tidak ada profile yang tersedia karena semua terkena blokir kuota hari ini.");
+      console.log('Tidak ada profile yang tersedia (semua kena blokir kuota).');
       return;
     }
 
+    // Baca prompts dari hasil.json
     let prompts = [];
     try {
-      const hasilData = await fs.readFile(hasilJsonPath, "utf-8");
+      const hasilData = await fs.readFile(hasilJsonPath, 'utf-8');
       const hasil = JSON.parse(hasilData);
-
       prompts = Array.isArray(hasil)
-        ? hasil
-            .map((item) => {
-              if (!item) return null;
-
-              // Ambil string mentah dari geminiResult atau properti lainnya
-              const rawResult = item.geminiResult ?? item.prompt ?? item;
-
-              let textToParse = rawResult;
-              if (typeof rawResult === "object" && rawResult !== null) {
-                textToParse =
-                  rawResult.prompt ||
-                  rawResult.text ||
-                  Object.values(rawResult)[0];
-              }
-
-              if (typeof textToParse === "string") {
-                try {
-                  // Bersihkan bungkus markdown code block ```json ... ``` atau ``` ... ```
-                  let cleanStr = textToParse.trim();
-                  if (cleanStr.startsWith("```json")) {
-                    cleanStr = cleanStr
-                      .replace(/^```json/, "")
-                      .replace(/```$/, "")
-                      .trim();
-                  } else if (cleanStr.startsWith("```")) {
-                    cleanStr = cleanStr
-                      .replace(/^```/, "")
-                      .replace(/```$/, "")
-                      .trim();
-                  }
-
-                  // Coba parse jika formatnya string JSON
-                  const parsed = JSON.parse(cleanStr);
-                  if (parsed && typeof parsed === "object") {
-                    return (
-                      parsed.prompt ||
-                      parsed.text ||
-                      Object.values(parsed).find(
-                        (v) => typeof v === "string",
-                      ) ||
-                      cleanStr
-                    );
-                  }
-                  return cleanStr;
-                } catch (e) {
-                  // Jika gagal parse JSON, kembalikan teks mentahnya
-                  return textToParse;
-                }
-              }
-
-              return null;
-            })
-            .filter((p) => typeof p === "string" && p.trim().length > 0)
+        ? hasil.map(item => item?.prompt).filter(p => typeof p === 'string' && p.trim())
         : [];
-
       console.log(`📄 Loaded ${prompts.length} prompts dari ${hasilJsonPath}`);
     } catch (err) {
       console.error(`❌ Gagal baca hasil.json: ${err.message}`);
@@ -228,98 +127,64 @@ export async function generateImageFlow(
     }
 
     if (prompts.length === 0) {
-      console.log("⚠️ Tidak ada prompt, skip generateImageFlow");
+      console.log('⚠️ Tidak ada prompt, skip generateImageFlow');
       return;
     }
 
-    // Setup saveDir
     const saveDir = `${outputDir}/Hasil`;
-
-    await delay(5000); // Tunggu 5 detik sebelum mulai
+    await delay(5000);
 
     let round = 1;
     let promptsToProcess = [...prompts];
 
     while (promptsToProcess.length > 0) {
-      const roundProfiles = availableProfiles.filter(
-        (profile) => !isProfileQuotaBlocked(profile),
-      );
+      const roundProfiles = availableProfiles.filter(p => !isProfileQuotaBlocked(p));
       if (roundProfiles.length === 0) {
-        console.log("⏭️ Semua profile yang tersisa terkena blokir kuota hari ini.");
+        console.log('⏭️ Semua profile tersisa terkena blokir kuota.');
         break;
       }
 
-      console.log(
-        `\n🔁 Mulai round ${round} dengan ${promptsToProcess.length} prompt tersisa`,
-      );
+      console.log(`\n🔁 Mulai round ${round} dengan ${promptsToProcess.length} prompt tersisa`);
       const failedPrompts = [];
 
-      // Siapkan distribusi prompt untuk semua profil yang tersedia
+      // Distribusi prompt merata ke semua profil
       const profileToPrompts = {};
-      for (const profile of roundProfiles) {
-        profileToPrompts[profile] = [];
-      }
+      for (const profile of roundProfiles) profileToPrompts[profile] = [];
 
-      // Bagi rata prompt ke semua profil secara berurutan
       for (let i = 0; i < promptsToProcess.length; i++) {
-        const profileIndex = i % roundProfiles.length;
-        const profile = roundProfiles[profileIndex];
+        const profile = roundProfiles[i % roundProfiles.length];
         profileToPrompts[profile].push(promptsToProcess[i]);
       }
 
       let roundSuccess = false;
 
-      // Jalankan profil dalam batch sesuai maxConcurrentProfiles
+      // Jalankan profil dalam batch
       for (let i = 0; i < roundProfiles.length; i += maxConcurrentProfiles) {
         const currentProfiles = roundProfiles.slice(i, i + maxConcurrentProfiles);
+        const activeProfiles = currentProfiles.filter(p => profileToPrompts[p].length > 0);
+        if (activeProfiles.length === 0) continue;
 
-        const activeProfilesInBatch = currentProfiles.filter(
-          (p) => profileToPrompts[p].length > 0,
-        );
-        if (activeProfilesInBatch.length === 0) continue;
+        console.log(`\n🚀 [Batch] Menjalankan ${activeProfiles.length} profil bersamaan...`);
 
-        console.log(
-          `\n🚀 [Batch] Menjalankan ${activeProfilesInBatch.length} profil secara bersamaan...`,
-        );
-
-        const tasks = activeProfilesInBatch.map(async (profile, idx) => {
+        const tasks = activeProfiles.map(async (profile, idx) => {
           const batchPrompts = profileToPrompts[profile];
-          console.log(
-            `👤 Profil: ${profile} | 📝 Ditugaskan ${batchPrompts.length} prompt`,
-          );
+          console.log(`👤 Profil: ${profile} | 📝 ${batchPrompts.length} prompt`);
 
-          // Staggered delay agar browser tidak terbuka secara bersamaan di detik yang sama
-          if (idx > 0) {
-            const staggerDelay = idx * 3000; // 3 detik per browser
-            await delay(staggerDelay);
-          }
+          // Stagger agar tidak buka browser bersamaan
+          if (idx > 0) await delay(idx * 3000);
 
-          return scrape(
-            profile,
-            batchPrompts,
-            saveDir,
-            imagesPerPrompt,
-            promptTimeoutMs,
-          )
-            .then((successCount) => {
+          return scrape(profile, batchPrompts, saveDir, imagesPerPrompt, promptTimeoutMs)
+            .then(successCount => {
               if (successCount > 0) roundSuccess = true;
-              console.log(
-                `✅ Profile '${profile}' sukses memproses ${successCount}/${batchPrompts.length} prompt`,
-              );
-
+              console.log(`✅ Profile '${profile}': ${successCount}/${batchPrompts.length} prompt berhasil`);
               if (successCount < batchPrompts.length) {
                 const failed = batchPrompts.slice(successCount);
                 failedPrompts.push(...failed);
-                console.log(
-                  `⚠️ ${failed.length} prompt dari profile '${profile}' gagal dan akan dikembalikan ke antrean.`,
-                );
+                console.log(`⚠️ ${failed.length} prompt dari '${profile}' gagal, dikembalikan ke antrean.`);
               }
             })
-            .catch((err) => {
-              console.error(
-                `❌ Error tidak terduga pada profile '${profile}':`,
-                err,
-              );
+            .catch(err => {
+              console.error(`❌ Error tidak terduga pada profile '${profile}':`, err);
               failedPrompts.push(...batchPrompts);
             });
         });
@@ -328,60 +193,47 @@ export async function generateImageFlow(
       }
 
       if (!roundSuccess && failedPrompts.length > 0) {
-        console.log(
-          "⚠️ Tidak ada profile yang berhasil dalam round ini. Hentikan loop agar tidak infinite.",
-        );
+        console.log('⚠️ Tidak ada profile yang berhasil. Hentikan loop.');
         break;
       }
 
       promptsToProcess = failedPrompts;
       if (promptsToProcess.length > 0) {
-        console.log(
-          `♻️ ${promptsToProcess.length} prompt dikembalikan ke antrean untuk round berikutnya.`,
-        );
+        console.log(`♻️ ${promptsToProcess.length} prompt ke antrean berikutnya.`);
       }
       round++;
     }
 
-    console.log(`\n✅ Selesai generateImageFlow`);
+    console.log('\n✅ Selesai generateImageFlow');
   } catch (err) {
     console.error(err);
   }
 }
 
-/**
- * Scrape dengan profile tertentu menggunakan batch prompt
- * @param {string} profile - nama profile
- * @param {string[]} batchPrompts - array of prompts untuk di-type
- * @param {string} saveDir - folder tempat menyimpan hasil gambar
- * @returns {Promise<number>} jumlah prompt yang berhasil
- */
-async function scrape(
-  profile,
-  batchPrompts,
-  saveDir,
-  expectedCount,
-  timeoutMs,
-) {
-  console.log(`Profil ke : ${profile}`);
+// ─── Scrape Per-Profile ───────────────────────────────────────────────────────
 
+/**
+ * Jalankan satu sesi scrape untuk satu profile
+ * @param {string} profile
+ * @param {string[]} batchPrompts
+ * @param {string} saveDir
+ * @param {number} expectedCount
+ * @param {number} timeoutMs
+ * @returns {Promise<number>}
+ */
+async function scrape(profile, batchPrompts, saveDir, expectedCount, timeoutMs) {
+  console.log(`Profil ke: ${profile}`);
   const browserI = new browser();
 
   try {
     await browserI.init(profile);
-
     await fs.mkdir(saveDir, { recursive: true });
-    const stopImageListener = listenForGeneratedImages(
-      browserI.page,
-      saveDir,
-      profile,
-    );
 
-    await browserI.page.goto("https://labs.google/fx/id/tools/flow", {
-      waitUntil: "networkidle",
+    await browserI.page.goto('https://labs.google/fx/id/tools/flow', {
+      waitUntil: 'networkidle',
     });
 
-    const { successCount, finalUrl, quotaReached } = await generate(
+    const successCount = await generate(
       browserI.page,
       profile,
       batchPrompts,
@@ -390,239 +242,73 @@ async function scrape(
       timeoutMs,
     );
 
-    // --- SIMPAN KE HISTORY.JSON ---
-    saveHistory(profile, finalUrl, successCount, saveDir);
-    // ------------------------------
+    // Simpan riwayat ke history.json
+    saveHistory(profile, browserI.page.url(), successCount, saveDir);
 
-    if (quotaReached) {
-      markProfileQuotaBlocked(profile);
-    }
-
-    await browserI.page.waitForTimeout(8000);
-    await stopImageListener();
-
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-
-    return successCount;
-
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-
+    await new Promise(resolve => setTimeout(resolve, 5000));
     return successCount;
   } catch (err) {
     console.error(`❌ Error di profile '${profile}': ${err.message}`);
-    return 0; // Gagal semua
+    return 0;
   } finally {
     try {
       await browserI.close();
     } catch (closeErr) {
-      console.error(
-        `❌ Gagal menutup browser profile '${profile}': ${closeErr.message}`,
-      );
+      console.error(`❌ Gagal menutup browser '${profile}': ${closeErr.message}`);
     }
   }
 }
 
-export async function openProfiles() {
-  console.log(`📦 Total profil ditemukan: ${profiles.length}`);
-  let batchSize = 3;
+// ─── Popup Handler ────────────────────────────────────────────────────────────
 
-  for (let i = 0; i < profiles.length; i += batchSize) {
-    const currentBatch = profiles.slice(i, i + batchSize);
-    console.log(
-      `\n🚀 Membuka batch profil (${i + 1} s/d ${i + currentBatch.length}):`,
-      currentBatch,
-    );
-
-    // Array untuk menyimpan instance browser aktif di batch ini
-    const activeBrowsers = [];
-
-    for (const profile of currentBatch) {
-      try {
-        console.log(`🌐 Membuka profile: ${profile}`);
-
-        // Membuka persistent context tanpa bendera automation
-        const context = await chromium.launchPersistentContext(
-          `D:\\chrome-profiles\\${profile}`,
-          {
-            executablePath:
-              "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-            headless: false,
-            ignoreDefaultArgs: ["--enable-automation", "--disable-extensions"],
-            args: [
-              "--disable-blink-features=AutomationControlled",
-              "--start-maximized",
-              "--no-sandbox",
-              "--disable-setuid-sandbox",
-              "--disable-infobars",
-              "--window-position=0,0",
-              "--ignore-certificate-errors",
-            ],
-            viewport: null,
-          },
-        );
-
-        const pages = context.pages();
-        const page = pages.length > 0 ? pages[0] : await context.newPage();
-
-        // Hapus jejak webdriver agar terlihat seperti browser manual/asli
-        await context.addInitScript(() => {
-          Object.defineProperty(navigator, "webdriver", {
-            get: () => undefined,
-          });
-          window.chrome = {
-            runtime: {},
-            loadTimes: function () {},
-            csi: function () {},
-          };
-        });
-
-        // Buka halaman utama Flow AI (atau bisa dikosongkan jika hanya ingin buka browsernya saja)
-        await page
-          .goto("https://labs.google/fx/id/tools/flow", {
-            waitUntil: "domcontentloaded",
-          })
-          .catch(() => {});
-              let downloaded = false;
-
-              for (let attempt = 1; attempt <= 2 && !downloaded; attempt++) {
-                const frameDownloadZipButton = appFrame
-                  .getByRole("button", { name: /Download ZIP/i })
-                  .first();
-                const pageDownloadZipButton = browserI.page
-                  .getByRole("button", { name: /Download ZIP/i })
-                  .first();
-                let downloadZipButton = frameDownloadZipButton;
-
-                try {
-                  await frameDownloadZipButton.waitFor({
-                    state: "visible",
-                    timeout: 120000,
-                  });
-                } catch (frameError) {
-                  downloadZipButton = pageDownloadZipButton;
-                  await downloadZipButton.waitFor({
-                    state: "visible",
-                    timeout: 30000,
-                  });
-                }
-
-                try {
-                  const downloadPromise = browserI.page.waitForEvent("download", {
-                    timeout: 120000,
-                  });
-                  await downloadZipButton.click();
-                  const download = await downloadPromise;
-                  await download.path();
-                  downloaded = true;
-                  console.log(`📦 Download ZIP selesai untuk profile '${profile}'.`);
-                } catch (downloadError) {
-                  const errorText = browserI.page.getByText(
-                    /Something went wrong/i,
-                  );
-                  const hasDownloadError = await errorText.count() > 0;
-                  if (!hasDownloadError || attempt === 2) {
-                    throw downloadError;
-                  }
-                  console.warn(`⚠️ Download ZIP gagal, mencoba ulang (${attempt}/2)...`);
-                  await browserI.page.waitForTimeout(3000);
-                }
-              }
-
-        activeBrowsers.push({ profile, context });
-        await delay(1500); // Jeda kecil antar pembukaan jendela browser
-      } catch (err) {
-        console.error(`❌ Gagal membuka profile '${profile}': ${err.message}`);
-      }
-    }
-
-    console.log(`✅ ${activeBrowsers.length} profil berhasil dibuka.`);
-
-    // Jika masih ada sisa profil berikutnya di antrean, tunggu input Space dari user
-    if (i + batchSize < profiles.length) {
-      function waitForKeypress() {
-        return new Promise((resolve) => {
-          const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-          });
-
-          console.log(
-            "\n⏸️  [PAUSE] Tekan [SPACE] lalu [ENTER] untuk melanjutkan ke 3 profil berikutnya...",
-          );
-
-          rl.on("line", (line) => {
-            rl.close();
-            resolve();
-          });
-        });
-      }
-    } else {
-      console.log("\n🎉 Semua profil telah selesai dibuka!");
-    }
-  }
-}
-
+/**
+ * Tangani popup onboarding Flow (Sign in, settings, privacy)
+ */
 async function handleFlowPopups(page) {
-  const signInButton = page
-    .getByRole("button", { name: /Sign in to Flow/i })
-    .first();
+  const signInButton = page.getByRole('button', { name: /Sign in to Flow/i }).first();
   if (await signInButton.count() > 0 && await signInButton.isVisible()) {
     await signInButton.click();
     await page.waitForTimeout(1500);
   }
 
   const settingsHeading = page
-    .getByRole("heading", { name: /Gunakan dan bentuk alat AI untuk kreativitas/i })
+    .getByRole('heading', { name: /Gunakan dan bentuk alat AI untuk kreativitas/i })
     .first();
   if (await settingsHeading.count() > 0 && await settingsHeading.isVisible()) {
-    const checkboxes = page.getByRole("checkbox");
+    const checkboxes = page.getByRole('checkbox');
     for (let i = 0; i < await checkboxes.count(); i++) {
       const checkbox = checkboxes.nth(i);
-      if ((await checkbox.getAttribute("aria-checked")) !== "true") {
+      if ((await checkbox.getAttribute('aria-checked')) !== 'true') {
         await checkbox.check().catch(() => checkbox.click());
       }
     }
-
-    const nextButton = page
-      .getByRole("button", { name: /Berikutnya/i })
-      .first();
-    await nextButton.waitFor({ state: "visible", timeout: 30000 });
+    const nextButton = page.getByRole('button', { name: /Berikutnya/i }).first();
+    await nextButton.waitFor({ state: 'visible', timeout: 30000 });
     await nextButton.click();
     await page.waitForTimeout(1000);
   }
 
   const privacyHeading = page
-    .getByRole("heading", { name: /Tinjau kebijakan privasi kami/i })
+    .getByRole('heading', { name: /Tinjau kebijakan privasi kami/i })
     .first();
   if (await privacyHeading.count() > 0 && await privacyHeading.isVisible()) {
-    const scrollContainer = privacyHeading.locator("xpath=..").locator("xpath=..");
-    await scrollContainer.evaluate((element) => {
-      let current = element;
-      while (current && current !== document.body) {
-        if (current.scrollHeight > current.clientHeight) {
-          current.scrollTop = current.scrollHeight;
-          return;
+    const scrollContainer = privacyHeading.locator('xpath=..').locator('xpath=..');
+    const scrollDown = async () =>
+      scrollContainer.evaluate(el => {
+        let c = el;
+        while (c && c !== document.body) {
+          if (c.scrollHeight > c.clientHeight) { c.scrollTop = c.scrollHeight; return; }
+          c = c.parentElement;
         }
-        current = current.parentElement;
-      }
-      window.scrollTo(0, document.body.scrollHeight);
-    });
-
-    const continueButton = page
-      .getByRole("button", { name: /Lanjutkan/i })
-      .first();
-    await continueButton.waitFor({ state: "visible", timeout: 30000 });
-    for (let attempt = 0; attempt < 15 && await continueButton.isDisabled(); attempt++) {
-      await scrollContainer.evaluate((element) => {
-        let current = element;
-        while (current && current !== document.body) {
-          if (current.scrollHeight > current.clientHeight) {
-            current.scrollTop = current.scrollHeight;
-            return;
-          }
-          current = current.parentElement;
-        }
+        window.scrollTo(0, document.body.scrollHeight);
       });
+
+    await scrollDown();
+    const continueButton = page.getByRole('button', { name: /Lanjutkan/i }).first();
+    await continueButton.waitFor({ state: 'visible', timeout: 30000 });
+
+    for (let attempt = 0; attempt < 15 && await continueButton.isDisabled(); attempt++) {
+      await scrollDown();
       await page.waitForTimeout(400);
     }
     await continueButton.click();
@@ -630,13 +316,18 @@ async function handleFlowPopups(page) {
   }
 }
 
+// ─── Open Shared Flow ─────────────────────────────────────────────────────────
+
+/**
+ * Buka shared Flow di semua profil dan sematkan ke project masing-masing
+ */
 export async function openSharedFlowInAllProfiles() {
   const sharedFlowUrl =
-    "https://labs.google/fx/tools/flow/shared/tool/a82f2baf-ebcd-4e00-b119-2ef077fe44af";
+    'https://labs.google/fx/tools/flow/shared/tool/a82f2baf-ebcd-4e00-b119-2ef077fe44af';
   const activeBrowsers = [];
 
   if (profiles.length === 0) {
-    console.log("Tidak ada profil Chrome yang tersedia.");
+    console.log('Tidak ada profil Chrome yang tersedia.');
     return;
   }
 
@@ -648,14 +339,13 @@ export async function openSharedFlowInAllProfiles() {
       await profileBrowser.init(profile);
       const page = profileBrowser.page;
 
-      await page.goto("https://labs.google/fx/id/tools/flow", {
-        waitUntil: "domcontentloaded",
-      });
+      await page.goto('https://labs.google/fx/id/tools/flow', { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(3000);
       await handleFlowPopups(page);
 
+      // Cek apakah project dengan tool sudah ada
       const newProjectButton = page
-        .getByRole("button", { name: /Project baru|New project/i })
+        .getByRole('button', { name: /Project baru|New project/i })
         .first();
       if (await newProjectButton.count() > 0 && await newProjectButton.isVisible()) {
         await newProjectButton.click();
@@ -665,82 +355,59 @@ export async function openSharedFlowInAllProfiles() {
         /https:\/\/labs\.google\/fx\/id\/tools\/flow\/project\/[^/]+\/tool-version\/a82f2baf-ebcd-4e00-b119-2ef077fe44af/;
       await page.waitForURL(projectUrlPattern, { timeout: 30000 }).catch(() => {});
       await page.waitForTimeout(2000);
-      const promptMarker = page.getByText("Paste JSON or Type Prompt", { exact: true }).first();
-      const isPromptProject = projectUrlPattern.test(page.url()) &&
-        await promptMarker.count() > 0 &&
-        await promptMarker.isVisible();
+
+      const promptMarker = page.getByText('Paste JSON or Type Prompt', { exact: true }).first();
+      const isPromptProject =
+        projectUrlPattern.test(page.url()) &&
+        (await promptMarker.count()) > 0 &&
+        (await promptMarker.isVisible());
 
       if (isPromptProject) {
         activeBrowsers.push({ profile, context: profileBrowser.context });
-        console.log(`✅ ${profile}: project siap, ditemukan "Paste JSON or Type Prompt".`);
+        console.log(`✅ ${profile}: project sudah siap.`);
         continue;
       }
 
-      await page.goto(sharedFlowUrl, { waitUntil: "domcontentloaded" });
+      // Buka shared flow dan salin ke project
+      await page.goto(sharedFlowUrl, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(3000);
       await handleFlowPopups(page);
 
       const tryProjectButton = page
-        .getByRole("button", { name: /Coba di project/i })
+        .getByRole('button', { name: /Coba di project/i })
         .first();
-      await tryProjectButton.waitFor({ state: "visible", timeout: 30000 });
+      await tryProjectButton.waitFor({ state: 'visible', timeout: 30000 });
       await tryProjectButton.click();
 
-      const projectDate = page
-        .locator("span")
-        .filter({ hasText: /\d{1,2}:\d{2}/ })
-        .first();
-      await projectDate.waitFor({ state: "visible", timeout: 30000 });
+      const projectDate = page.locator('span').filter({ hasText: /\d{1,2}:\d{2}/ }).first();
+      await projectDate.waitFor({ state: 'visible', timeout: 30000 });
       await projectDate.click();
 
-      const openButton = page
-        .getByRole("button", { name: /^Buka$/i })
-        .first();
-      await openButton.waitFor({ state: "visible", timeout: 30000 });
+      const openButton = page.getByRole('button', { name: /^Buka$/i }).first();
+      await openButton.waitFor({ state: 'visible', timeout: 30000 });
       await openButton.click();
 
       await page.waitForTimeout(3000);
       const moreOptionsButton = page
-        .getByRole("button", { name: /Opsi lainnya/i })
+        .getByRole('button', { name: /Opsi lainnya/i })
         .first();
-      await moreOptionsButton.waitFor({ state: "visible", timeout: 30000 });
+      await moreOptionsButton.waitFor({ state: 'visible', timeout: 30000 });
       await moreOptionsButton.click();
 
-      const pinButton = page
-        .getByRole("menuitem", { name: /Sematkan/i })
-        .first();
-      await pinButton.waitFor({ state: "visible", timeout: 30000 });
+      const pinButton = page.getByRole('menuitem', { name: /Sematkan/i }).first();
+      await pinButton.waitFor({ state: 'visible', timeout: 30000 });
       await pinButton.click();
 
       activeBrowsers.push({ profile, context: profileBrowser.context });
       console.log(`✅ Project berhasil dibuka pada ${profile}.`);
       await delay(1500);
     } catch (err) {
-      console.error(`❌ Gagal membuka project pada profile '${profile}': ${err.message}`);
+      console.error(`❌ Gagal membuka project pada '${profile}': ${err.message}`);
       await profileBrowser.close().catch(() => {});
     }
   }
 
-  console.log(`✅ Selesai: ${activeBrowsers.length}/${profiles.length} profile berhasil diproses.`);
+  console.log(
+    `✅ Selesai: ${activeBrowsers.length}/${profiles.length} profile berhasil diproses.`,
+  );
 }
-
-// async function test() {
-//     const browserI = new browser();
-//     console.log('Mulai test generateImageFlow...');
-
-//     for(const profile of profiles) {
-//         console.log(`Profil ke : ${profile}`);
-//         await browserI.init(profile);
-//     await browserI.page.goto(
-//         "https://www.browserscan.net/",
-//         { waitUntil: 'networkidle' }
-//     );
-//     await delay(2000)
-
-//     await browserI.page.screenshot({ path: `test-${profile}.png` });
-//     }
-//     console.log('Selesai test generateImageFlow.');
-
-// }
-
-// test();
