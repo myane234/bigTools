@@ -83,44 +83,44 @@ export async function processCodeSecurity() {
     }
 
     // 2. SKENARIO SKIP OBFUSCATE (Restorasi Kode Mentah)
-    if (skipObfuscate) {
-      console.log(`🔓 [Obfuscate] PC '${pcName}' diatur SKIP OBFUSCATE. Menggunakan kode mentah...`);
-      if (fs.existsSync(backupPath)) {
-        const rawContent = fs.readFileSync(backupPath, 'utf-8');
-        fs.writeFileSync(filePath, rawContent, 'utf-8');
-      }
-      continue;
-    }
+    // if (skipObfuscate) {
+    //   console.log(`🔓 [Obfuscate] PC '${pcName}' diatur SKIP OBFUSCATE. Menggunakan kode mentah...`);
+    //   if (fs.existsSync(backupPath)) {
+    //     const rawContent = fs.readFileSync(backupPath, 'utf-8');
+    //     fs.writeFileSync(filePath, rawContent, 'utf-8');
+    //   }
+    //   continue;
+    // }
 
-    // 3. SKENARIO OBFUSCATE KODE RUNNER (Ringan & Cepat, Tidak Lemot)
-    console.log(`🔒 [Obfuscate] Meng-obfuscate kode runner (${path.basename(filePath)}) opsi cepat/ringan...`);
-    try {
-      const sourceCode = fs.existsSync(backupPath)
-        ? fs.readFileSync(backupPath, 'utf-8')
-        : fs.readFileSync(filePath, 'utf-8');
+    // // 3. SKENARIO OBFUSCATE KODE RUNNER (Ringan & Cepat, Tidak Lemot)
+    // console.log(`🔒 [Obfuscate] Meng-obfuscate kode runner (${path.basename(filePath)}) opsi cepat/ringan...`);
+    // try {
+    //   const sourceCode = fs.existsSync(backupPath)
+    //     ? fs.readFileSync(backupPath, 'utf-8')
+    //     : fs.readFileSync(filePath, 'utf-8');
 
-      // Proteksi file kosong agar tidak error
-      if (!sourceCode.trim()) {
-        console.warn(`⚠️ [Obfuscate] File ${path.basename(filePath)} kosong, melewatinya...`);
-        continue;
-      }
+    //   // Proteksi file kosong agar tidak error
+    //   if (!sourceCode.trim()) {
+    //     console.warn(`⚠️ [Obfuscate] File ${path.basename(filePath)} kosong, melewatinya...`);
+    //     continue;
+    //   }
 
-      const obfuscatedResult = JavaScriptObfuscator.obfuscate(sourceCode, {
-        compact: true,
-        controlFlowFlattening: false, // OFF agar runtime TIDAK LEMOT
-        deadCodeInjection: false,     // OFF agar file TIDAK BENGKAK
-        stringArray: true,
-        stringArrayEncoding: ['base64'],
-        stringArrayThreshold: 0.5,
-        splitStrings: false,
-        disableConsoleOutput: false,
-      });
+    //   const obfuscatedResult = JavaScriptObfuscator.obfuscate(sourceCode, {
+    //     compact: true,
+    //     controlFlowFlattening: false, // OFF agar runtime TIDAK LEMOT
+    //     deadCodeInjection: false,     // OFF agar file TIDAK BENGKAK
+    //     stringArray: true,
+    //     stringArrayEncoding: ['base64'],
+    //     stringArrayThreshold: 0.5,
+    //     splitStrings: false,
+    //     disableConsoleOutput: false,
+    //   });
 
-      fs.writeFileSync(filePath, obfuscatedResult.getObfuscatedCode(), 'utf-8');
-      console.log(`✅ [Obfuscate] ${path.basename(filePath)} selesai di-obfuscate (Runtime super cepat).`);
-    } catch (err) {
-      console.error(`❌ [Obfuscate] Gagal meng-obfuscate ${path.basename(filePath)}:`, err.message);
-    }
+    //   fs.writeFileSync(filePath, obfuscatedResult.getObfuscatedCode(), 'utf-8');
+    //   console.log(`✅ [Obfuscate] ${path.basename(filePath)} selesai di-obfuscate (Runtime super cepat).`);
+    // } catch (err) {
+    //   console.error(`❌ [Obfuscate] Gagal meng-obfuscate ${path.basename(filePath)}:`, err.message);
+    // }
   }
 }
 

@@ -1,1 +1,418 @@
-const _0x2d29e5=_0x137c;(function(_0x3edca7,_0x53721a){const _0x1283c3=_0x137c,_0x1d5591=_0x3edca7();while(!![]){try{const _0x3581fc=-parseInt(_0x1283c3(0xef))/0x1*(-parseInt(_0x1283c3(0xe0))/0x2)+-parseInt(_0x1283c3(0xc9))/0x3+parseInt(_0x1283c3(0x108))/0x4+parseInt(_0x1283c3(0xe3))/0x5*(-parseInt(_0x1283c3(0xae))/0x6)+parseInt(_0x1283c3(0xd9))/0x7*(-parseInt(_0x1283c3(0xbb))/0x8)+-parseInt(_0x1283c3(0xf7))/0x9*(parseInt(_0x1283c3(0xba))/0xa)+parseInt(_0x1283c3(0xce))/0xb;if(_0x3581fc===_0x53721a)break;else _0x1d5591['push'](_0x1d5591['shift']());}catch(_0x5191b0){_0x1d5591['push'](_0x1d5591['shift']());}}}(_0xe9cb,0x9bba0));import{chromium}from'playwright-extra';import _0x3ad9bf from'puppeteer-extra-plugin-stealth';import _0x217f19 from'fs/promises';function _0xe9cb(){const _0x2a4305=['y2f0y2G','ihbYB21WDcbKyxjPicC','4PQG77IpifrPzgfRigfKysbWCM9TChqSihnRAxaGz2vUzxjHDgvjBwfNzuzSB3C','DhjPBq','zMLSDgvY','CgfNzq','mta0mJyWwwvvAxPv','ogLZDuPzqG','C2nYB2XSsgvPz2H0','ihbYB2zPBguGyMvYAgfZAwWGzgLWCM9ZzxmU','AxneAxnHyMXLza','8j+mKcbnzw1IDwTHihnOyxjLzcbgBg93ihbHzgeG','zxjYB3i','yM9KEq','EhbHDgG9lI4','CMvHzezPBgu','y2HLy2TIB3G','y2HLy2S','yNv0Dg9U','oIbRDw90ysbOywjPCYbOyxjPigLUAs4','zxzHBhvHDgu','mtiZodm3mhvbruTXDa','BwTKAxi','qZPCuhjVz3jHBsbgAwXLC1XhB29NBgvCq2HYB21LxefWCgXPy2f0Aw9UxgnOCM9Tzs5LEgu','y291BNq','ihWG8j+tNsa','mZq3mdm4ndvsr0XLrfC','ChjVBxb0','Bg9JyxrVCG','vgLKywSGywrHihbYB2zPBcbdAhjVBwuGEwfUzYb0zxjZzwrPys4','uhjVzMLSigTLoIa','BgvUz3rO','D2fPDezVCLrPBwvVDxq','cVcFLieGtxvSywKGCM91BMqG','4PYfifbYB2zPBguGjW','DgvZDa','ChvZAa','odG4mdC2n2jvv0vrra','ls1KAxnHyMXLlwLUzM9IyxjZ','y2XVC2u','CgfYzw50rwXLBwvUDa','4PQG77Ipia','BMv0D29YA2LKBgu','C2XPy2u','nJjMshvZCgO','AxnwAxnPyMXL','D2fPDezVCG','mtbKy3Plq1K','ihbYB21WDcbIzxjOyxnPBa','y2XPy2S','CgfYC2u','DgHLBG','ls1KAxnHyMXLlxnLDhvPzc1Zyw5KyM94','ls1KAxnHyMXLlwjSAw5RlwzLyxr1CMvZpuf1Dg9TyxrPB25dB250CM9SBgvK','DxnL','4PYfifbYB2PLy3qGyMvYAgfZAwWGzgLIDwTHihbHzgeG','DxrMltG','ywXS','y2XPzw50sgvPz2H0','mJu1ntrJwvnHtvq','4P2mieDHz2fSig1LBwj1A2eGChjVAMvJDcbWywrHicC','C29YDa','4PM777Ipia','cUkCHsbtzwXLC2fPigDLBMvYyxrLsw1Hz2vgBg93','y29UDgv4Da','yxjPys1JAgvJA2vK','zw50CMLLCW','odu1AfbzD0Lf','ls1UBY1Zyw5KyM94','4O+T77IpifnLBxvHihbYB2zPBguGDgvYC2LZysb0zxjRzw5HigjSB2TPCIbRDw90ys4','Dhj1zq','4PQG77IpifrPzgfRigfKysbWCM9MAwXLihLHBMCGyMvYAgfZAwWUieHLBNrPA2fUigXVB3aU','zgvMAw5LuhjVCgvYDhK','ihbYB21WDcb0zxjZAxnH','8j+tHcbmB2fKzwqG','ls13Aw5KB3CTCg9ZAxrPB249mcWW','ls1LBMfIBguTyxv0B21HDgLVBG','z290BW','DMLZAwjSzq','ls1ZDgfYDc1TyxHPBwL6zwq','C3rYAw5N','4P2mieDHz2fSig1LBNv0DxaGyNjVD3nLCIaN','Aw5PDa','D2fPDezVCLvsta','mJi0mZy5nNrXAxfNza','zMLYC3q','jYbNywDHBcWGzgLRzw1IywXPA2fUigTLigfUDhjLyw4U','z2v0qNLsB2XL','jZOG','4O+T77Ipie1LBgv3yxrPia','CMvHzgrPCG','mZu5ndu4oeTbwwz0Ca','BwvZC2fNzq','ihbYB21WDa','4P2mieDHz2fSigjHy2eGAgfZAwWUANnVBJOG','Bg9N','AxnbCNjHEq'];_0xe9cb=function(){return _0x2a4305;};return _0xe9cb();}import{generate}from'./utils/automationGenerate.js';import{isProfileQuotaBlocked,markProfileQuotaBlocked,saveHistory,getNonLabsProfiles}from'./utils/historyJson.js';export const profiles=(await _0x217f19[_0x2d29e5(0xad)]('D:\x5cchrome-profiles'))[_0x2d29e5(0xb8)](_0x121ea4=>/^profile\d+$/i[_0x2d29e5(0xd7)](_0x121ea4))[_0x2d29e5(0xf1)]((_0x4ac6bf,_0x231633)=>_0x4ac6bf['localeCompare'](_0x231633,undefined,{'numeric':!![],'sensitivity':'base'}));chromium[_0x2d29e5(0xea)](_0x3ad9bf()),console['log'](profiles);export class browser{constructor(){const _0x347da4=_0x2d29e5;this['context']=null,this[_0x347da4(0xb9)]=null;}async[_0x2d29e5(0x106)](_0x511a9){const _0x5ce692=_0x2d29e5;this['context']=await chromium['launchPersistentContext']('D:\x5cchrome-profiles\x5c'+_0x511a9,{'executablePath':_0x5ce692(0xcb),'headless':![],'acceptDownloads':!![],'ignoreDefaultArgs':[_0x5ce692(0x100),'--disable-extensions'],'args':[_0x5ce692(0xe9),_0x5ce692(0x103),_0x5ce692(0xf8),_0x5ce692(0xe8),_0x5ce692(0xda),_0x5ce692(0xff),'--ignore-certificate-errors'],'viewport':null});const _0x5ac7cc=this['context']['pages']();this[_0x5ce692(0xb9)]=_0x5ac7cc['length']>0x0?_0x5ac7cc[0x0]:await this['context']['newPage']();try{this['page']['browser']=()=>this[_0x5ce692(0xf4)]['browser']();}catch(_0x2ef713){}await this[_0x5ce692(0xf4)]['addInitScript'](()=>{const _0x1e7d2f=_0x5ce692;Object[_0x1e7d2f(0xfc)](navigator,'webdriver',{'get':()=>undefined}),window['chrome']={'runtime':{},'loadTimes':function(){},'csi':function(){}};});}async[_0x2d29e5(0xdb)](){const _0x16613f=_0x2d29e5;this[_0x16613f(0xf4)]&&(await new Promise(_0x4023aa=>setTimeout(_0x4023aa,0x3e8)),await this[_0x16613f(0xf4)]['close'](),this[_0x16613f(0xf4)]=null,this['page']=null);}}const delay=_0x182b84=>new Promise(_0x33d41c=>setTimeout(_0x33d41c,_0x182b84));export async function generateImageFlow(_0x226298,_0x5a1d19=0x3,_0xda2401=0x2,_0x27bd77=0xea60,_0x339c2e=0xa){const _0x448dee=_0x2d29e5;try{const _0x1a08dd=_0x226298+'/hasil.json',_0x4845d7=profiles['filter'](_0x282552=>!isProfileQuotaBlocked(_0x282552)),_0xbf1a8e=profiles['filter'](_0x588809=>isProfileQuotaBlocked(_0x588809));for(const _0x2d7359 of _0xbf1a8e){console['log'](_0x448dee(0xac)+_0x2d7359+_0x448dee(0xc7));}if(_0x4845d7[_0x448dee(0xd3)]===0x0){console['log']('Tidak\x20ada\x20profile\x20yang\x20tersedia\x20(semua\x20kena\x20blokir\x20kuota).');return;}let _0x34ea24=[];try{const _0x19efe3=await _0x217f19[_0x448dee(0xc3)](_0x1a08dd,_0x448dee(0xec)),_0x5e8fb2=JSON[_0x448dee(0xe6)](_0x19efe3);_0x34ea24=Array[_0x448dee(0xb3)](_0x5e8fb2)?_0x5e8fb2['map'](_0x3f171b=>_0x3f171b?.[_0x448dee(0xcf)])['filter'](_0x3edef7=>typeof _0x3edef7===_0x448dee(0x104)&&_0x3edef7[_0x448dee(0xb7)]()):[],console[_0x448dee(0xb2)](_0x448dee(0xfe)+_0x34ea24[_0x448dee(0xd3)]+'\x20prompts\x20dari\x20'+_0x1a08dd);}catch(_0x170fa3){console[_0x448dee(0xc0)](_0x448dee(0xb1)+_0x170fa3[_0x448dee(0xaf)]);return;}if(_0x34ea24[_0x448dee(0xd3)]===0x0){console['log'](_0x448dee(0xb6));return;}const _0x435a8a=_0x226298+'/Hasil';await delay(0x1388);let _0x346a7b=0x1,_0x3fe59a=[..._0x34ea24];while(_0x3fe59a['length']>0x0){const _0x33a317=_0x4845d7['filter'](_0x193059=>!isProfileQuotaBlocked(_0x193059));if(_0x33a317['length']===0x0){console['log'](_0x448dee(0xf9));break;}console['log'](_0x448dee(0xd5)+_0x346a7b+'\x20dengan\x20'+_0x3fe59a[_0x448dee(0xd3)]+_0x448dee(0xfd));const _0x3af1ee=[],_0x4a8528={};for(const _0x1e3df0 of _0x33a317)_0x4a8528[_0x1e3df0]=[];for(let _0x5e415d=0x0;_0x5e415d<_0x3fe59a[_0x448dee(0xd3)];_0x5e415d++){const _0x3630a0=_0x33a317[_0x5e415d%_0x33a317[_0x448dee(0xd3)]];_0x4a8528[_0x3630a0]['push'](_0x3fe59a[_0x5e415d]);}let _0x10fb37=![];for(let _0x125d2e=0x0;_0x125d2e<_0x33a317[_0x448dee(0xd3)];_0x125d2e+=_0x339c2e){const _0xc49e67=_0x33a317[_0x448dee(0xdf)](_0x125d2e,_0x125d2e+_0x339c2e),_0x4c77fc=_0xc49e67[_0x448dee(0xb8)](_0x5be547=>_0x4a8528[_0x5be547]['length']>0x0);if(_0x4c77fc[_0x448dee(0xd3)]===0x0)continue;console['log']('\x0a🚀\x20[Batch]\x20Menjalankan\x20'+_0x4c77fc['length']+'\x20profil\x20bersamaan...');const _0x13012c=_0x4c77fc['map'](async(_0x29d483,_0x308607)=>{const _0xfd16a9=_0x448dee,_0x20bdde=_0x4a8528[_0x29d483];console['log']('👤\x20Profil:\x20'+_0x29d483+_0xfd16a9(0xcd)+_0x20bdde['length']+_0xfd16a9(0xb0));if(_0x308607>0x0)await delay(_0x308607*0xbb8);return scrape(_0x29d483,_0x20bdde,_0x435a8a,_0xda2401,_0x27bd77)[_0xfd16a9(0xe7)](_0x440d47=>{const _0x259490=_0xfd16a9;if(_0x440d47>0x0)_0x10fb37=!![];console['log'](_0x259490(0xd6)+_0x29d483+'\x27:\x20'+_0x440d47+'/'+_0x20bdde['length']+_0x259490(0xe4));if(_0x440d47<_0x20bdde['length']){const _0x543f60=_0x20bdde[_0x259490(0xdf)](_0x440d47);_0x3af1ee['push'](..._0x543f60),console['log'](_0x259490(0xdd)+_0x543f60['length']+_0x259490(0xb5)+_0x29d483+_0x259490(0x10a));}})[_0xfd16a9(0xb4)](_0x297f48=>{const _0x115380=_0xfd16a9;console['error']('❌\x20Error\x20tidak\x20terduga\x20pada\x20profile\x20\x27'+_0x29d483+'\x27:',_0x297f48),_0x3af1ee[_0x115380(0xd8)](..._0x20bdde);});});await Promise[_0x448dee(0xed)](_0x13012c);}if(!_0x10fb37&&_0x3af1ee[_0x448dee(0xd3)]>0x0){console[_0x448dee(0xb2)](_0x448dee(0xfb));break;}_0x3fe59a=_0x3af1ee,_0x3fe59a[_0x448dee(0xd3)]>0x0&&console['log'](_0x448dee(0xf2)+_0x3fe59a[_0x448dee(0xd3)]+'\x20prompt\x20ke\x20antrean\x20berikutnya.'),_0x346a7b++;}console[_0x448dee(0xb2)](_0x448dee(0xf3));}catch(_0x795e4){console['error'](_0x795e4);}}async function scrape(_0x192439,_0x4346c5,_0x4a9248,_0x35464f,_0x3361b6){const _0x125e78=_0x2d29e5;console['log'](_0x125e78(0xd2)+_0x192439);const _0x5575be=new browser();try{await _0x5575be['init'](_0x192439),await _0x217f19[_0x125e78(0xca)](_0x4a9248,{'recursive':!![]}),await _0x5575be[_0x125e78(0xb9)]['goto']('https://labs.google/fx/id/tools/flow',{'waitUntil':_0x125e78(0xde)});const {successCount:_0x482ad4,finalUrl:_0x19ecf0,quotaReached:_0x4f52cf}=await generate(_0x5575be[_0x125e78(0xb9)],_0x192439,_0x4346c5,_0x4a9248,_0x35464f,_0x3361b6);return saveHistory(_0x192439,_0x19ecf0||_0x5575be['page']['url'](),_0x482ad4,_0x4a9248),_0x4f52cf&&markProfileQuotaBlocked(_0x192439),await new Promise(_0x3db113=>setTimeout(_0x3db113,0x1388)),_0x482ad4;}catch(_0x5090fb){return console[_0x125e78(0xc0)]('❌\x20Error\x20di\x20profile\x20\x27'+_0x192439+'\x27:\x20'+_0x5090fb['message']),0x0;}finally{try{await _0x5575be[_0x125e78(0xdb)]();}catch(_0x4b3609){console['error'](_0x125e78(0x105)+_0x192439+_0x125e78(0xab)+_0x4b3609[_0x125e78(0xaf)]);}}}async function handleFlowPopups(_0x3cc480){const _0x5bfb09=_0x2d29e5,_0x40b966=_0x3cc480['getByRole']('button',{'name':/Sign in to Flow/i})[_0x5bfb09(0x109)]();await _0x40b966['count']()>0x0&&await _0x40b966['isVisible']()&&(await _0x40b966[_0x5bfb09(0xe5)](),await _0x3cc480['waitForTimeout'](0x5dc));const _0x5055e6=_0x3cc480[_0x5bfb09(0x10b)]('heading',{'name':/Gunakan dan bentuk alat AI untuk kreativitas/i})[_0x5bfb09(0x109)]();if(await _0x5055e6[_0x5bfb09(0xcc)]()>0x0&&await _0x5055e6['isVisible']()){const _0x49b9e4=_0x3cc480['getByRole'](_0x5bfb09(0xc4));for(let _0x1d13cf=0x0;_0x1d13cf<await _0x49b9e4['count']();_0x1d13cf++){const _0x4fdd85=_0x49b9e4['nth'](_0x1d13cf);await _0x4fdd85['getAttribute'](_0x5bfb09(0xf5))!==_0x5bfb09(0xfa)&&await _0x4fdd85[_0x5bfb09(0xc5)]()['catch'](()=>_0x4fdd85[_0x5bfb09(0xe5)]());}const _0x25d891=_0x3cc480[_0x5bfb09(0x10b)]('button',{'name':/Berikutnya/i})['first']();await _0x25d891['waitFor']({'state':'visible','timeout':0x7530}),await _0x25d891['click'](),await _0x3cc480['waitForTimeout'](0x3e8);}const _0xd76815=_0x3cc480[_0x5bfb09(0x10b)]('heading',{'name':/Tinjau kebijakan privasi kami/i})[_0x5bfb09(0x109)]();if(await _0xd76815['count']()>0x0&&await _0xd76815['isVisible']()){const _0x3a2af9=_0xd76815[_0x5bfb09(0xd0)](_0x5bfb09(0xc2))['locator']('xpath=..'),_0x44d0b9=async()=>_0x3a2af9[_0x5bfb09(0xc8)](_0xad5514=>{const _0x47a8ff=_0x5bfb09;let _0x5dd268=_0xad5514;while(_0x5dd268&&_0x5dd268!==document[_0x47a8ff(0xc1)]){if(_0x5dd268[_0x47a8ff(0xbc)]>_0x5dd268[_0x47a8ff(0xee)]){_0x5dd268['scrollTop']=_0x5dd268[_0x47a8ff(0xbc)];return;}_0x5dd268=_0x5dd268[_0x47a8ff(0xdc)];}window['scrollTo'](0x0,document[_0x47a8ff(0xc1)][_0x47a8ff(0xbc)]);});await _0x44d0b9();const _0x2b96f0=_0x3cc480['getByRole'](_0x5bfb09(0xc6),{'name':/Lanjutkan/i})['first']();await _0x2b96f0[_0x5bfb09(0xe2)]({'state':'visible','timeout':0x7530});for(let _0x476962=0x0;_0x476962<0xf&&await _0x2b96f0[_0x5bfb09(0xbe)]();_0x476962++){await _0x44d0b9(),await _0x3cc480[_0x5bfb09(0xd4)](0x190);}await _0x2b96f0['click'](),await _0x3cc480['waitForTimeout'](0x5dc);}}function _0x137c(_0x4b8150,_0x19a907){_0x4b8150=_0x4b8150-0xab;const _0xe9cb9f=_0xe9cb();let _0x137cf8=_0xe9cb9f[_0x4b8150];if(_0x137c['oZtLRK']===undefined){var _0x33e11a=function(_0x475a88){const _0x1230a4='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=';let _0xa9800f='',_0x3ad9bf='';for(let _0x217f19=0x0,_0x121ea4,_0x4ac6bf,_0x231633=0x0;_0x4ac6bf=_0x475a88['charAt'](_0x231633++);~_0x4ac6bf&&(_0x121ea4=_0x217f19%0x4?_0x121ea4*0x40+_0x4ac6bf:_0x4ac6bf,_0x217f19++%0x4)?_0xa9800f+=String['fromCharCode'](0xff&_0x121ea4>>(-0x2*_0x217f19&0x6)):0x0){_0x4ac6bf=_0x1230a4['indexOf'](_0x4ac6bf);}for(let _0x511a9=0x0,_0x5ac7cc=_0xa9800f['length'];_0x511a9<_0x5ac7cc;_0x511a9++){_0x3ad9bf+='%'+('00'+_0xa9800f['charCodeAt'](_0x511a9)['toString'](0x10))['slice'](-0x2);}return decodeURIComponent(_0x3ad9bf);};_0x137c['DTtAVT']=_0x33e11a,_0x137c['kMUTYs']={},_0x137c['oZtLRK']=!![];}const _0x1f3b0e=_0xe9cb9f[0x0];_0x137c['bgGuLh']!==_0x1f3b0e&&(_0x137c['kMUTYs']={},_0x137c['bgGuLh']=_0x1f3b0e);const _0x254306=_0x137c['kMUTYs'][_0x4b8150];return _0x254306===undefined?(_0x137cf8=_0x137c['DTtAVT'](_0x137cf8),_0x137c['kMUTYs'][_0x4b8150]=_0x137cf8):_0x137cf8=_0x254306,_0x137cf8;}export async function openSharedFlowInAllProfiles(){const _0x3f7ef2=_0x2d29e5,_0xa06e5e='https://labs.google/fx/tools/flow/shared/tool/a82f2baf-ebcd-4e00-b119-2ef077fe44af',_0x778b08=[];if(profiles[_0x3f7ef2(0xd3)]===0x0){console['log'](_0x3f7ef2(0xd1));return;}for(const [_0x3e2072,_0x37f400]of profiles[_0x3f7ef2(0xf6)]()){const _0x4ec5ac=new browser();try{console['log'](_0x3f7ef2(0xbf)+_0x37f400+'\x20('+(_0x3e2072+0x1)+'/'+profiles[_0x3f7ef2(0xd3)]+')...'),await _0x4ec5ac['init'](_0x37f400);const _0x5cba0b=_0x4ec5ac['page'];await _0x5cba0b['goto']('https://labs.google/fx/id/tools/flow',{'waitUntil':'domcontentloaded'}),await _0x5cba0b[_0x3f7ef2(0xd4)](0xbb8),await handleFlowPopups(_0x5cba0b);const _0x38f5a5=_0x5cba0b[_0x3f7ef2(0x10b)]('button',{'name':/Project baru|New project/i})['first']();await _0x38f5a5['count']()>0x0&&await _0x38f5a5[_0x3f7ef2(0xe1)]()&&await _0x38f5a5[_0x3f7ef2(0xe5)]();const _0x3dc37e=/https:\/\/labs\.google\/fx\/id\/tools\/flow\/project\/[^/]+\/tool-version\/a82f2baf-ebcd-4e00-b119-2ef077fe44af/;await _0x5cba0b[_0x3f7ef2(0x107)](_0x3dc37e,{'timeout':0x7530})[_0x3f7ef2(0xb4)](()=>{}),await _0x5cba0b[_0x3f7ef2(0xd4)](0x7d0);const _0x5c8921=_0x5cba0b['getByText']('Paste\x20JSON\x20or\x20Type\x20Prompt',{'exact':!![]})[_0x3f7ef2(0x109)](),_0x24d19b=_0x3dc37e['test'](_0x5cba0b['url']())&&await _0x5c8921[_0x3f7ef2(0xcc)]()>0x0&&await _0x5c8921[_0x3f7ef2(0xe1)]();if(_0x24d19b){_0x778b08[_0x3f7ef2(0xd8)]({'profile':_0x37f400,'context':_0x4ec5ac[_0x3f7ef2(0xf4)]}),console['log']('✅\x20'+_0x37f400+':\x20project\x20sudah\x20siap.');continue;}await _0x5cba0b[_0x3f7ef2(0x101)](_0xa06e5e,{'waitUntil':'domcontentloaded'}),await _0x5cba0b['waitForTimeout'](0xbb8),await handleFlowPopups(_0x5cba0b);const _0x4e2329=_0x5cba0b[_0x3f7ef2(0x10b)]('button',{'name':/Coba di project/i})['first']();await _0x4e2329['waitFor']({'state':'visible','timeout':0x7530}),await _0x4e2329[_0x3f7ef2(0xe5)]();const _0x5003dd=_0x5cba0b['locator']('span')[_0x3f7ef2(0xb8)]({'hasText':/\d{1,2}:\d{2}/})['first']();await _0x5003dd[_0x3f7ef2(0xe2)]({'state':_0x3f7ef2(0x102),'timeout':0x7530}),await _0x5003dd['click']();const _0x13f567=_0x5cba0b['getByRole']('button',{'name':/^Buka$/i})[_0x3f7ef2(0x109)]();await _0x13f567['waitFor']({'state':'visible','timeout':0x7530}),await _0x13f567[_0x3f7ef2(0xe5)](),await _0x5cba0b['waitForTimeout'](0xbb8);const _0x53ba83=_0x5cba0b[_0x3f7ef2(0x10b)]('button',{'name':/Opsi lainnya/i})[_0x3f7ef2(0x109)]();await _0x53ba83[_0x3f7ef2(0xe2)]({'state':_0x3f7ef2(0x102),'timeout':0x7530}),await _0x53ba83['click']();const _0x383cfe=_0x5cba0b['getByRole']('menuitem',{'name':/Sematkan/i})[_0x3f7ef2(0x109)]();await _0x383cfe['waitFor']({'state':_0x3f7ef2(0x102),'timeout':0x7530}),await _0x383cfe[_0x3f7ef2(0xe5)](),_0x778b08['push']({'profile':_0x37f400,'context':_0x4ec5ac[_0x3f7ef2(0xf4)]}),console['log'](_0x3f7ef2(0xeb)+_0x37f400+'.'),await delay(0x5dc);}catch(_0x25681a){console[_0x3f7ef2(0xc0)](_0x3f7ef2(0xf0)+_0x37f400+'\x27:\x20'+_0x25681a[_0x3f7ef2(0xaf)]),await _0x4ec5ac['close']()[_0x3f7ef2(0xb4)](()=>{});}}console[_0x3f7ef2(0xb2)]('✅\x20Selesai:\x20'+_0x778b08[_0x3f7ef2(0xd3)]+'/'+profiles[_0x3f7ef2(0xd3)]+_0x3f7ef2(0xbd));}
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import fs from 'fs/promises';
+import { generate } from './utils/automationGenerate.js';
+import {
+  isProfileQuotaBlocked,
+  markProfileQuotaBlocked,
+  saveHistory,
+  getNonLabsProfiles,
+} from './utils/historyJson.js';
+
+// Baca & filter hanya folder profil yang valid (profile1, profile2, dst.)
+export const profiles = (await fs.readdir('D:\\chrome-profiles'))
+  .filter(name => /^profile\d+$/i.test(name))
+  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+chromium.use(StealthPlugin());
+console.log(profiles);
+
+// ─── Browser Class ──────────────────────────────────────────────────────────
+
+export class browser {
+  constructor() {
+    this.context = null;
+    this.page = null;
+  }
+
+  async init(profile) {
+    this.context = await chromium.launchPersistentContext(
+      `D:\\chrome-profiles\\${profile}`,
+      {
+        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        headless: false,
+        acceptDownloads: true,
+        ignoreDefaultArgs: [
+          '--enable-automation',
+          '--disable-extensions',
+        ],
+        args: [
+          '--disable-blink-features=AutomationControlled',
+          '--start-maximized',
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-infobars',
+          '--window-position=0,0',
+          '--ignore-certificate-errors',
+        ],
+        viewport: null,
+      },
+    );
+
+    const pages = this.context.pages();
+    this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
+
+    try {
+      this.page.browser = () => this.context.browser();
+    } catch (e) {
+      // ignore
+    }
+
+    await this.context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      window.chrome = {
+        runtime: {},
+        loadTimes: function () {},
+        csi: function () {},
+      };
+    });
+  }
+
+  async close() {
+    if (this.context) {
+      await new Promise(r => setTimeout(r, 1000));
+      await this.context.close();
+      this.context = null;
+      this.page = null;
+    }
+  }
+}
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// ─── Generate Image Flow ─────────────────────────────────────────────────────
+
+/**
+ * Entry point utama: jalankan generateImageFlow dari hasil.json
+ * @param {string} outputDir - folder output yang berisi hasil.json
+ * @param {number} promptsPerProfile - prompt per profil (tidak dipakai langsung, untuk referensi)
+ * @param {number} imagesPerPrompt - target jumlah gambar per prompt
+ * @param {number} promptTimeoutMs - batas waktu tunggu gambar (ms)
+ * @param {number} maxConcurrentProfiles - maksimal profile berjalan bersamaan
+ */
+export async function generateImageFlow(
+  outputDir,
+  promptsPerProfile = 3,
+  imagesPerPrompt = 2,
+  promptTimeoutMs = 60000,
+  maxConcurrentProfiles = 10,
+) {
+  try {
+    const hasilJsonPath = `${outputDir}/hasil.json`;
+
+    // Filter profil yang tidak sedang diblokir kuota
+    const availableProfiles = profiles.filter(p => !isProfileQuotaBlocked(p));
+    const blockedProfiles = profiles.filter(p => isProfileQuotaBlocked(p));
+
+    for (const profile of blockedProfiles) {
+      console.log(`⏭️ Melewati ${profile}: kuota habis hari ini.`);
+    }
+
+    if (availableProfiles.length === 0) {
+      console.log('Tidak ada profile yang tersedia (semua kena blokir kuota).');
+      return;
+    }
+
+    // Baca prompts dari hasil.json
+    let prompts = [];
+    try {
+      const hasilData = await fs.readFile(hasilJsonPath, 'utf-8');
+      const hasil = JSON.parse(hasilData);
+      prompts = Array.isArray(hasil)
+        ? hasil.map(item => item?.prompt).filter(p => typeof p === 'string' && p.trim())
+        : [];
+      console.log(`📄 Loaded ${prompts.length} prompts dari ${hasilJsonPath}`);
+    } catch (err) {
+      console.error(`❌ Gagal baca hasil.json: ${err.message}`);
+      return;
+    }
+
+    if (prompts.length === 0) {
+      console.log('⚠️ Tidak ada prompt, skip generateImageFlow');
+      return;
+    }
+
+    const saveDir = `${outputDir}/Hasil`;
+    await delay(5000);
+
+    let round = 1;
+    let promptsToProcess = [...prompts];
+
+    while (promptsToProcess.length > 0) {
+      const roundProfiles = availableProfiles.filter(p => !isProfileQuotaBlocked(p));
+      if (roundProfiles.length === 0) {
+        console.log('⏭️ Semua profile tersisa terkena blokir kuota.');
+        break;
+      }
+
+      console.log(`\n🔁 Mulai round ${round} dengan ${promptsToProcess.length} prompt tersisa`);
+      const failedPrompts = [];
+
+      // Distribusi prompt merata ke semua profil
+      const profileToPrompts = {};
+      for (const profile of roundProfiles) profileToPrompts[profile] = [];
+
+      for (let i = 0; i < promptsToProcess.length; i++) {
+        const profile = roundProfiles[i % roundProfiles.length];
+        profileToPrompts[profile].push(promptsToProcess[i]);
+      }
+
+      let roundSuccess = false;
+
+      // Jalankan profil dalam batch
+      for (let i = 0; i < roundProfiles.length; i += maxConcurrentProfiles) {
+        const currentProfiles = roundProfiles.slice(i, i + maxConcurrentProfiles);
+        const activeProfiles = currentProfiles.filter(p => profileToPrompts[p].length > 0);
+        if (activeProfiles.length === 0) continue;
+
+        console.log(`\n🚀 [Batch] Menjalankan ${activeProfiles.length} profil bersamaan...`);
+
+        const tasks = activeProfiles.map(async (profile, idx) => {
+          const batchPrompts = profileToPrompts[profile];
+          console.log(`👤 Profil: ${profile} | 📝 ${batchPrompts.length} prompt`);
+
+          // Stagger agar tidak buka browser bersamaan
+          if (idx > 0) await delay(idx * 3000);
+
+          return scrape(profile, batchPrompts, saveDir, imagesPerPrompt, promptTimeoutMs)
+            .then(successCount => {
+              if (successCount > 0) roundSuccess = true;
+              console.log(`✅ Profile '${profile}': ${successCount}/${batchPrompts.length} prompt berhasil`);
+              if (successCount < batchPrompts.length) {
+                const failed = batchPrompts.slice(successCount);
+                failedPrompts.push(...failed);
+                console.log(`⚠️ ${failed.length} prompt dari '${profile}' gagal, dikembalikan ke antrean.`);
+              }
+            })
+            .catch(err => {
+              console.error(`❌ Error tidak terduga pada profile '${profile}':`, err);
+              failedPrompts.push(...batchPrompts);
+            });
+        });
+
+        await Promise.all(tasks);
+      }
+
+      if (!roundSuccess && failedPrompts.length > 0) {
+        console.log('⚠️ Tidak ada profile yang berhasil. Hentikan loop.');
+        break;
+      }
+
+      promptsToProcess = failedPrompts;
+      if (promptsToProcess.length > 0) {
+        console.log(`♻️ ${promptsToProcess.length} prompt ke antrean berikutnya.`);
+      }
+      round++;
+    }
+
+    console.log('\n✅ Selesai generateImageFlow');
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// ─── Scrape Per-Profile ───────────────────────────────────────────────────────
+
+/**
+ * Jalankan satu sesi scrape untuk satu profile
+ * @param {string} profile
+ * @param {string[]} batchPrompts
+ * @param {string} saveDir
+ * @param {number} expectedCount
+ * @param {number} timeoutMs
+ * @returns {Promise<number>}
+ */
+async function scrape(profile, batchPrompts, saveDir, expectedCount, timeoutMs) {
+  console.log(`Profil ke: ${profile}`);
+  const browserI = new browser();
+
+  try {
+    await browserI.init(profile);
+    await fs.mkdir(saveDir, { recursive: true });
+
+    await browserI.page.goto('https://labs.google/fx/id/tools/flow', {
+      waitUntil: 'networkidle',
+    });
+
+    const { successCount, finalUrl, quotaReached } = await generate(
+      browserI.page,
+      profile,
+      batchPrompts,
+      saveDir,
+      expectedCount,
+      timeoutMs,
+    );
+
+    // Simpan riwayat ke history.json
+    saveHistory(profile, finalUrl || browserI.page.url(), successCount, saveDir);
+
+    if (quotaReached) {
+      markProfileQuotaBlocked(profile);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    return successCount;
+  } catch (err) {
+    console.error(`❌ Error di profile '${profile}': ${err.message}`);
+    return 0;
+  } finally {
+    try {
+      await browserI.close();
+    } catch (closeErr) {
+      console.error(`❌ Gagal menutup browser '${profile}': ${closeErr.message}`);
+    }
+  }
+}
+
+// ─── Popup Handler ────────────────────────────────────────────────────────────
+
+/**
+ * Tangani popup onboarding Flow (Sign in, settings, privacy)
+ */
+async function handleFlowPopups(page) {
+  const signInButton = page.getByRole('button', { name: /Sign in to Flow/i }).first();
+  if (await signInButton.count() > 0 && await signInButton.isVisible()) {
+    await signInButton.click();
+    await page.waitForTimeout(1500);
+  }
+
+  const settingsHeading = page
+    .getByRole('heading', { name: /Gunakan dan bentuk alat AI untuk kreativitas/i })
+    .first();
+  if (await settingsHeading.count() > 0 && await settingsHeading.isVisible()) {
+    const checkboxes = page.getByRole('checkbox');
+    for (let i = 0; i < await checkboxes.count(); i++) {
+      const checkbox = checkboxes.nth(i);
+      if ((await checkbox.getAttribute('aria-checked')) !== 'true') {
+        await checkbox.check().catch(() => checkbox.click());
+      }
+    }
+    const nextButton = page.getByRole('button', { name: /Berikutnya/i }).first();
+    await nextButton.waitFor({ state: 'visible', timeout: 30000 });
+    await nextButton.click();
+    await page.waitForTimeout(1000);
+  }
+
+  const privacyHeading = page
+    .getByRole('heading', { name: /Tinjau kebijakan privasi kami/i })
+    .first();
+  if (await privacyHeading.count() > 0 && await privacyHeading.isVisible()) {
+    const scrollContainer = privacyHeading.locator('xpath=..').locator('xpath=..');
+    const scrollDown = async () =>
+      scrollContainer.evaluate(el => {
+        let c = el;
+        while (c && c !== document.body) {
+          if (c.scrollHeight > c.clientHeight) { c.scrollTop = c.scrollHeight; return; }
+          c = c.parentElement;
+        }
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
+    await scrollDown();
+    const continueButton = page.getByRole('button', { name: /Lanjutkan/i }).first();
+    await continueButton.waitFor({ state: 'visible', timeout: 30000 });
+
+    for (let attempt = 0; attempt < 15 && await continueButton.isDisabled(); attempt++) {
+      await scrollDown();
+      await page.waitForTimeout(400);
+    }
+    await continueButton.click();
+    await page.waitForTimeout(1500);
+  }
+}
+
+// ─── Open Shared Flow ─────────────────────────────────────────────────────────
+
+/**
+ * Buka shared Flow di semua profil dan sematkan ke project masing-masing
+ */
+export async function openSharedFlowInAllProfiles() {
+  const sharedFlowUrl =
+    'https://labs.google/fx/tools/flow/shared/tool/a82f2baf-ebcd-4e00-b119-2ef077fe44af';
+  const activeBrowsers = [];
+
+  if (profiles.length === 0) {
+    console.log('Tidak ada profil Chrome yang tersedia.');
+    return;
+  }
+
+  for (const [index, profile] of profiles.entries()) {
+    const profileBrowser = new browser();
+
+    try {
+      console.log(`🌐 Membuka shared Flow pada ${profile} (${index + 1}/${profiles.length})...`);
+      await profileBrowser.init(profile);
+      const page = profileBrowser.page;
+
+      await page.goto('https://labs.google/fx/id/tools/flow', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3000);
+      await handleFlowPopups(page);
+
+      // Cek apakah project dengan tool sudah ada
+      const newProjectButton = page
+        .getByRole('button', { name: /Project baru|New project/i })
+        .first();
+      if (await newProjectButton.count() > 0 && await newProjectButton.isVisible()) {
+        await newProjectButton.click();
+      }
+
+      const projectUrlPattern =
+        /https:\/\/labs\.google\/fx\/id\/tools\/flow\/project\/[^/]+\/tool-version\/a82f2baf-ebcd-4e00-b119-2ef077fe44af/;
+      await page.waitForURL(projectUrlPattern, { timeout: 30000 }).catch(() => {});
+      await page.waitForTimeout(2000);
+
+      const promptMarker = page.getByText('Paste JSON or Type Prompt', { exact: true }).first();
+      const isPromptProject =
+        projectUrlPattern.test(page.url()) &&
+        (await promptMarker.count()) > 0 &&
+        (await promptMarker.isVisible());
+
+      if (isPromptProject) {
+        activeBrowsers.push({ profile, context: profileBrowser.context });
+        console.log(`✅ ${profile}: project sudah siap.`);
+        continue;
+      }
+
+      // Buka shared flow dan salin ke project
+      await page.goto(sharedFlowUrl, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3000);
+      await handleFlowPopups(page);
+
+      const tryProjectButton = page
+        .getByRole('button', { name: /Coba di project/i })
+        .first();
+      await tryProjectButton.waitFor({ state: 'visible', timeout: 30000 });
+      await tryProjectButton.click();
+
+      const projectDate = page.locator('span').filter({ hasText: /\d{1,2}:\d{2}/ }).first();
+      await projectDate.waitFor({ state: 'visible', timeout: 30000 });
+      await projectDate.click();
+
+      const openButton = page.getByRole('button', { name: /^Buka$/i }).first();
+      await openButton.waitFor({ state: 'visible', timeout: 30000 });
+      await openButton.click();
+
+      await page.waitForTimeout(3000);
+      const moreOptionsButton = page
+        .getByRole('button', { name: /Opsi lainnya/i })
+        .first();
+      await moreOptionsButton.waitFor({ state: 'visible', timeout: 30000 });
+      await moreOptionsButton.click();
+
+      const pinButton = page.getByRole('menuitem', { name: /Sematkan/i }).first();
+      await pinButton.waitFor({ state: 'visible', timeout: 30000 });
+      await pinButton.click();
+
+      activeBrowsers.push({ profile, context: profileBrowser.context });
+      console.log(`✅ Project berhasil dibuka pada ${profile}.`);
+      await delay(1500);
+    } catch (err) {
+      console.error(`❌ Gagal membuka project pada '${profile}': ${err.message}`);
+      await profileBrowser.close().catch(() => {});
+    }
+  }
+
+  console.log(
+    `✅ Selesai: ${activeBrowsers.length}/${profiles.length} profile berhasil diproses.`,
+  );
+}
