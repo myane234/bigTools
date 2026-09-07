@@ -256,59 +256,34 @@ export async function handleAllPopupsWithAIFallback(page) {
 export async function downloadProject(page, projectUrl, saveDir = './Hasil') {
   try {
     console.log(`📌 Mengakses URL project untuk mengunduh: ${projectUrl}`);
-    if (projectUrl && page.url() !== projectUrl) {
-      await page.goto(projectUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
-      await page.waitForTimeout(3000);
-    }
+    if (!projectUrl) throw new Error('finalUrl project kosong');
 
-    // 1. Klik tombol "More options" di dalam container flow-more-options-menu
-    const moreOptionsSelectors = [
-      'flow-more-options-menu button',
-      '.tools-button-group flow-more-options-menu button',
-      'button[aria-label="More options"]',
-      'button[aria-label="Opsi lainnya"]',
-      '.tools-button-group button:has(mat-icon:has-text("more_vert"))',
-    ];
+    await page.goto(projectUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
 
-    let opened = false;
-    for (const sel of moreOptionsSelectors) {
-      const btn = page.locator(sel).first();
-      if (await btn.count() > 0 && await btn.isVisible()) {
-        await btn.click().catch(() => {});
-        await page.waitForTimeout(1000);
-        opened = true;
-        break;
-      }
-    }
+    console.log('Mencari tombol More Options...');
+    const moreOptionsButton = page.locator('flow-more-options-menu button[aria-label="More options"]');
+    await moreOptionsButton.waitFor({ state: 'visible', timeout: 15000 });
+    await moreOptionsButton.click();
+    console.log('Tombol More Options diklik.');
 
-    // Siapkan event listener Playwright download sebelum klik Download project
-    const downloadPromise = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
+    const menuPanel = page.locator('.mat-mdc-menu-panel');
+    await menuPanel.waitFor({ state: 'visible', timeout: 5000 });
 
-    // 2. Klik "Download project"
-    const downloadItem = page.locator('.label:has-text("Download project"), .item-text:has-text("Download project"), span:has-text("Download project")').first();
-    if (await downloadItem.count() > 0 && await downloadItem.isVisible()) {
-      console.log('⬇️ Mengklik "Download project"...');
-      await downloadItem.click().catch(() => {});
-    } else {
-      const downloadMenu = page.getByRole('menuitem', { name: /Download project|Download/i }).first();
-      if (await downloadMenu.count() > 0 && await downloadMenu.isVisible()) {
-        console.log('⬇️ Mengklik menu Download project...');
-        await downloadMenu.click().catch(() => {});
-      }
-    }
+    console.log('Mengeklik opsi Download project...');
+    const downloadItem = menuPanel.getByText('Download project', { exact: false });
+    await downloadItem.waitFor({ state: 'visible', timeout: 5000 });
 
-    // Tangkap file download dan simpan ke saveDir
-    const download = await downloadPromise;
-    if (download) {
-      checkDir(saveDir);
-      const suggestedFilename = download.suggestedFilename() || `project_${Date.now()}.zip`;
-      const savePath = path.join(saveDir, suggestedFilename);
-      await download.saveAs(savePath);
-      console.log(`📦 File Project ZIP berhasil disimpan di: ${savePath}`);
-    } else {
-      console.log('ℹ️ Mengirim perintah download, menunggu browser memproses simpan file...');
-      await page.waitForTimeout(5000);
-    }
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 30000 }),
+      downloadItem.click(),
+    ]);
+
+    checkDir(saveDir);
+    const fileName = download.suggestedFilename() || `project_${Date.now()}.zip`;
+    const savePath = path.join(saveDir, fileName);
+    await download.saveAs(savePath);
+    console.log(`✅ File berhasil diunduh dan disimpan di: ${savePath}`);
   } catch (err) {
     console.warn(`⚠️ Gagal download project: ${err.message}`);
   }
