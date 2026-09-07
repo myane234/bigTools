@@ -34,9 +34,15 @@ export async function ask(message, type = "input", extra = {}) {
 
 export async function askAwal() {
   try {
-    const URL = await ask("Masukkan URL Adobe untuk:", "input", {
-      filter: (value) => value.replace(/[\u0000-\u001F\u007F]/g, "").trim(),
-    });
+    const urlFilePath = path.resolve(process.cwd(), "URL.txt");
+    const URL = (
+      await fs.promises.readFile(urlFilePath, "utf8")
+    ).replace(/[\u0000-\u001F\u007F]/g, "").trim();
+    await fs.promises.writeFile(urlFilePath, "", "utf8");
+
+    if (!URL) {
+      throw new Error("URL.txt kosong");
+    }
 
     const pageCustom = await ask(
       "Masukkan Page yang diinginkan (default 1):",
