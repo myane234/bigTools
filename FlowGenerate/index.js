@@ -30,7 +30,7 @@ export class browser {
       `D:\\chrome-profiles\\${profile}`,
       {
         executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        headless: false,
+        headless: true,
         acceptDownloads: true,
         ignoreDefaultArgs: [
           '--enable-automation',
@@ -39,13 +39,14 @@ export class browser {
         args: [
           '--disable-blink-features=AutomationControlled',
           '--start-maximized',
+          '--window-size=1920,1080',
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-infobars',
           '--window-position=0,0',
           '--ignore-certificate-errors',
         ],
-        viewport: null,
+        viewport: { width: 1920, height: 1080 },
       },
     );
 
