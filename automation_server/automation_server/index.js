@@ -244,11 +244,11 @@ async function processImagesWithGroq(imagePath) {
 // generateImagesFromGroqResults function removed
 
 export async function main() {
-  const keyApp = await checkKeyApp();
-  if (keyApp !== true) {
-    console.log("Key App tidak valid, keluar dari aplikasi.");
-    process.exit(1);
-  }
+  // const keyApp = await checkKeyApp();
+  // if (keyApp !== true) {
+  //   console.log("Key App tidak valid, keluar dari aplikasi.");
+  //   process.exit(1);
+  // }
 
   const browser = await puppeteer.launch({
     headless: true,
