@@ -30,21 +30,21 @@ if (modeScrape) {
 
 //blokade
 
-async function checkKeyApp() {
-  const KeyApp = path.join("D:", "wlee.txt");
+// async function checkKeyApp() {
+//   const KeyApp = path.join("D:", "wlee.txt");
 
-  if (!fs.existsSync(KeyApp)) {
-    console.log(KeyApp);
-    throw new Error("Key App tidak ditemukan");
-  }
-  const checkKey = await fs.promises.readFile(KeyApp, "utf8");
+//   if (!fs.existsSync(KeyApp)) {
+//     console.log(KeyApp);
+//     throw new Error("Key App tidak ditemukan");
+//   }
+//   const checkKey = await fs.promises.readFile(KeyApp, "utf8");
 
-  if (checkKey.trim() !== "babiBerjalan") {
-    throw new Error("Key App salah");
-  }
+//   if (checkKey.trim() !== "babiBerjalan") {
+//     throw new Error("Key App salah");
+//   }
 
-  return true;
-}
+//   return true;
+// }
 
 // Blokade logic removed as calculateWorkerCount and tokens are no longer needed
 
