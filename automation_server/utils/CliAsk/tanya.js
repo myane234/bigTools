@@ -34,7 +34,9 @@ export async function ask(message, type = "input", extra = {}) {
 
 export async function askAwal() {
   try {
-    const URL = await ask("Masukkan URL Adobe untuk:");
+    const URL = await ask("Masukkan URL Adobe untuk:", "input", {
+      filter: (value) => value.replace(/[\u0000-\u001F\u007F]/g, "").trim(),
+    });
 
     const pageCustom = await ask(
       "Masukkan Page yang diinginkan (default 1):",
