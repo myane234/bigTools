@@ -135,62 +135,88 @@ export function attachFlowListener(page, saveDir = './Hasil') {
     let currentPromptSaved = 0;
     const startTime = Date.now();
 
+    const imageSelector = 'img[src*="/asb/"], img[src*="flow-content.google"], img[src*="getMediaUrlRedirect"], img[data-media-id], img.image[src^="http"]';
+
+    const scanImages = async () => {
+      const imgLocators = await page.$$(imageSelector);
+
+      for (const img of imgLocators) {
+        const imageInfo = await page.evaluate(el => ({
+          src: el.currentSrc || el.src,
+          mediaId: el.getAttribute('data-media-id'),
+          complete: el.complete,
+          width: el.naturalWidth,
+          height: el.naturalHeight,
+        }), img).catch(() => null);
+
+        if (!imageInfo?.src || !imageInfo.complete || !imageInfo.width || !imageInfo.height) continue;
+
+        const uniqueKey = imageInfo.mediaId || imageInfo.src;
+        if (seenKeys.has(uniqueKey)) continue;
+
+        try {
+          const base64 = await page.evaluate(async (imgSrc) => {
+            const res = await fetch(imgSrc);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            return new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+          }, imageInfo.src);
+
+          const base64Data = base64?.replace(/^data:image\/[\w.+-]+;base64,/, '');
+          if (!base64Data) continue;
+
+          const fileId = imageInfo.mediaId || `${Date.now()}_${savedCount}`;
+          checkDir(saveDir);
+          const filePath = path.join(saveDir, `${fileId}.png`);
+          fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+
+          seenKeys.add(uniqueKey);
+          savedCount++;
+          currentPromptSaved++;
+          savedFiles.push(filePath);
+          console.log(`[Flow] ✅ Gambar tersimpan (${imageInfo.width}x${imageInfo.height}): ${filePath}`);
+
+          if (currentPromptSaved >= targetCount) break;
+        } catch (err) {
+          console.error('[Flow] ❌ Gagal download image dari DOM:', err.message);
+        }
+      }
+    };
+
+    const scrollAndScan = async () => {
+      const positions = await page.evaluate(() => {
+        const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        const step = Math.max(300, Math.floor(window.innerHeight * 0.65));
+        const result = [];
+        for (let position = 0; position < maxScroll; position += step) result.push(position);
+        result.push(maxScroll);
+        return [...new Set(result)];
+      });
+
+      for (const position of positions) {
+        await page.evaluate(scrollTop => window.scrollTo(0, scrollTop), position);
+        await delay(500);
+        await scanImages();
+        if (currentPromptSaved >= targetCount) return;
+      }
+
+      for (const position of [...positions].reverse()) {
+        await page.evaluate(scrollTop => window.scrollTo(0, scrollTop), position);
+        await delay(500);
+        await scanImages();
+        if (currentPromptSaved >= targetCount) return;
+      }
+    };
+
     while (Date.now() - startTime < timeoutMs && currentPromptSaved < targetCount) {
       // Tunggu tile pending selesai jika ada
       await waitForPendingGeneration(page, 15000).catch(() => {});
-
-      // Scroll ke bawah agar gambar ter-render
-      await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-      await delay(2000);
-
-      // Cari elemen gambar di DOM dengan berbagai selector marker
-      const imgLocators = await page.$$('img[src*="/asb/"], img[src*="flow-content.google"], img[src*="getMediaUrlRedirect"], img[data-media-id], img.image[src^="http"]');
-      for (const img of imgLocators) {
-        const src = await page.evaluate(el => el.src, img);
-        const mediaIdAttr = await page.evaluate(el => el.getAttribute('data-media-id'), img);
-        const uniqueKey = mediaIdAttr || src;
-
-        if (src && !seenKeys.has(uniqueKey)) {
-          seenKeys.add(uniqueKey);
-
-          try {
-            const base64 = await page.evaluate(async (imgSrc) => {
-              const res = await fetch(imgSrc);
-              const blob = await res.blob();
-              return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(blob);
-              });
-            }, src);
-
-            if (base64) {
-              const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
-              const buffer = Buffer.from(base64Data, 'base64');
-
-              const fileId = mediaIdAttr || Date.now().toString();
-              checkDir(saveDir);
-              const filePath = path.join(saveDir, `${fileId}.png`);
-              fs.writeFileSync(filePath, buffer);
-
-              savedCount++;
-              currentPromptSaved++;
-              savedFiles.push(filePath);
-              console.log(`[Flow] ✅ Gambar tersimpan dari DOM: ${filePath}`);
-
-              if (currentPromptSaved >= targetCount) break;
-            }
-          } catch (err) {
-            console.error(`[Flow] ❌ Gagal download image dari DOM:`, err.message);
-          }
-        }
-      }
-
-      if (currentPromptSaved >= targetCount) break;
-
-      // Scroll ke atas lagi
-      await page.evaluate(() => window.scrollBy(0, -window.innerHeight));
-      await delay(2000);
+      await scrollAndScan();
     }
 
     return { savedCount: currentPromptSaved, savedFiles };

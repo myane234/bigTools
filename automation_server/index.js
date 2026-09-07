@@ -73,6 +73,23 @@ async function Base64(imagePath) {
   }
 }
 
+function cleanGroqPrompt(groqResult) {
+  const cleanedResult = String(groqResult ?? "")
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  try {
+    const parsed = JSON.parse(cleanedResult);
+    if (typeof parsed.prompt === "string" && parsed.prompt.trim()) {
+      return parsed.prompt.trim();
+    }
+  } catch (e) {}
+
+  return cleanedResult;
+}
+
 async function sortingFile(outputDir) {
   const filePerFolder = 150;
   const hasilToSorting = path.join(outputDir, "Hasil");
@@ -200,11 +217,7 @@ async function processImagesWithGroq(imagePath) {
       const base64Image = await Base64(imagePath);
       const groqResult = await GroqAi.generateImage(base64Image);
 
-      let parsedPrompt = groqResult;
-      try {
-        const parsed = JSON.parse(groqResult);
-        if (parsed.prompt) parsedPrompt = parsed.prompt;
-      } catch (e) {}
+      const parsedPrompt = cleanGroqPrompt(groqResult);
 
       console.log(`Selesai proses: ${imagePath}`);
       return {
