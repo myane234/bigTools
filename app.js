@@ -87,7 +87,7 @@ async function mainMenu() {
   console.log('[5] Hanya buat gambar');
   console.log('[6] Edit isi Prompt');
   console.log('[7] Manajemen Profiles');
-  // console.log('[8] Buka Shared Flow di Semua Profile');
+  console.log('[8] Buka Shared Flow di Semua Profile');
   console.log('[0] Exit\n');
 
   const rl = createInterface();
@@ -135,9 +135,11 @@ async function mainMenu() {
       await manageProfiles();
       break;
 
-    // case '8':
-    //   await openSharedFlowInAllProfiles();
-    //   break;
+    case '8': {
+      const pathHasilJson = await askGenerateJustFlow();
+      await openSharedFlowInAllProfiles(pathHasilJson);
+      break;
+    }
 
     case '0':
       console.log(chalk.red('\nBye bro 👋\n'));

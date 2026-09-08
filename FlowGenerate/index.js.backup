@@ -1,7 +1,6 @@
 import { chromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'fs/promises';
-import path from 'path';
 import { generate } from './utils/automationGenerate.js';
 import {
   isProfileQuotaBlocked,
@@ -26,12 +25,12 @@ export class browser {
     this.page = null;
   }
 
-  async init(profile, { appUrl, visible = false } = {}) {
+  async init(profile) {
     this.context = await chromium.launchPersistentContext(
       `D:\\chrome-profiles\\${profile}`,
       {
         executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        headless: !visible,
+        headless: true,
         acceptDownloads: true,
         ignoreDefaultArgs: [
           '--enable-automation',
@@ -46,19 +45,12 @@ export class browser {
           '--disable-infobars',
           '--window-position=0,0',
           '--ignore-certificate-errors',
-          ...(visible ? ['--new-window'] : []),
-          ...(appUrl ? [`--app=${appUrl}`] : []),
         ],
-        viewport: visible ? null : { width: 1920, height: 1080 },
+        viewport: { width: 1920, height: 1080 },
       },
     );
 
     const pages = this.context.pages();
-    if (visible) {
-      for (const extraPage of pages.slice(1)) {
-        await extraPage.close().catch(() => {});
-      }
-    }
     this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
 
     try {
@@ -335,34 +327,10 @@ async function handleFlowPopups(page) {
 /**
  * Buka shared Flow di semua profil dan sematkan ke project masing-masing
  */
-export async function openSharedFlowInAllProfiles(outputPath) {
+export async function openSharedFlowInAllProfiles() {
   const sharedFlowUrl =
     'https://labs.google/fx/tools/flow/shared/tool/a82f2baf-ebcd-4e00-b119-2ef077fe44af';
   const activeBrowsers = [];
-
-  const requestedPath = outputPath?.trim();
-  if (!requestedPath) {
-    console.error('Path output wajib diisi.');
-    return;
-  }
-
-  const pathStat = await fs.stat(requestedPath).catch(() => null);
-  const outputDir = pathStat?.isFile() ? path.dirname(requestedPath) : requestedPath;
-  const hasilPath = path.join(outputDir, 'hasil.json');
-  const historyPath = path.join(outputDir, 'history.json');
-
-  if (!(await fs.stat(hasilPath).catch(() => null))) {
-    console.error(`hasil.json tidak ditemukan di ${outputDir}`);
-    return;
-  }
-
-  console.log(`📁 Folder output: ${outputDir}`);
-  console.log(`📄 hasil.json: ${hasilPath}`);
-  console.log(
-    (await fs.stat(historyPath).catch(() => null))
-      ? `📚 history.json ditemukan: ${historyPath}`
-      : 'ℹ️ history.json belum ada; akan dibuat saat proses menyimpan history.',
-  );
 
   if (profiles.length === 0) {
     console.log('Tidak ada profil Chrome yang tersedia.');
@@ -374,10 +342,7 @@ export async function openSharedFlowInAllProfiles(outputPath) {
 
     try {
       console.log(`🌐 Membuka shared Flow pada ${profile} (${index + 1}/${profiles.length})...`);
-      await profileBrowser.init(profile, {
-        appUrl: 'https://labs.google/fx/id/tools/flow',
-        visible: true,
-      });
+      await profileBrowser.init(profile);
       const page = profileBrowser.page;
 
       await page.goto('https://labs.google/fx/id/tools/flow', { waitUntil: 'domcontentloaded' });

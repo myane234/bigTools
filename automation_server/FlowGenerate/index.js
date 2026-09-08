@@ -25,7 +25,7 @@ export class browser {
     this.page = null;
   }
 
-  async init(profile) {
+  async init(profile, { appUrl } = {}) {
     this.context = await chromium.launchPersistentContext(
       `D:\\chrome-profiles\\${profile}`,
       {
@@ -44,12 +44,17 @@ export class browser {
           '--disable-infobars',
           '--window-position=0,0',
           '--ignore-certificate-errors',
+          '--new-window',
+          ...(appUrl ? [`--app=${appUrl}`] : []),
         ],
         viewport: null,
       },
     );
 
     const pages = this.context.pages();
+    for (const extraPage of pages.slice(1)) {
+      await extraPage.close().catch(() => {});
+    }
     this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
 
     try {
@@ -340,8 +345,9 @@ export async function openSharedFlowInAllProfiles() {
     const profileBrowser = new browser();
 
     try {
+      if (index > 0) await delay(5000);
       console.log(`🌐 Membuka shared Flow pada ${profile} (${index + 1}/${profiles.length})...`);
-      await profileBrowser.init(profile);
+      await profileBrowser.init(profile, { appUrl: 'https://labs.google/fx/id/tools/flow' });
       const page = profileBrowser.page;
 
       await page.goto('https://labs.google/fx/id/tools/flow', { waitUntil: 'domcontentloaded' });
@@ -405,7 +411,6 @@ export async function openSharedFlowInAllProfiles() {
 
       activeBrowsers.push({ profile, context: profileBrowser.context });
       console.log(`✅ Project berhasil dibuka pada ${profile}.`);
-      await delay(1500);
     } catch (err) {
       console.error(`❌ Gagal membuka project pada '${profile}': ${err.message}`);
       await profileBrowser.close().catch(() => {});
