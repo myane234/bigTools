@@ -3,6 +3,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import fs from 'fs/promises';
 import path from 'path';
 import { generate } from './utils/automationGenerate.js';
+import { openProfilesInBatches } from './openProfilesInBatches.js';
 import {
   isProfileQuotaBlocked,
   markProfileQuotaBlocked,
@@ -335,60 +336,56 @@ async function handleFlowPopups(page) {
 /**
  * Buka shared Flow di semua profil dan sematkan ke project masing-masing
  */
-export async function openSharedFlowInAllProfiles(outputPath) {
+export async function openSharedFlowInAllProfiles(outputPath, options = {}) {
   const sharedFlowUrl =
     'https://labs.google/fx/tools/flow/shared/tool/a82f2baf-ebcd-4e00-b119-2ef077fe44af';
-  const activeBrowsers = [];
-
-  const requestedPath = outputPath?.trim();
-  if (!requestedPath) {
-    console.error('Path output wajib diisi.');
-    return;
-  }
-
-  const pathStat = await fs.stat(requestedPath).catch(() => null);
-  const outputDir = pathStat?.isFile() ? path.dirname(requestedPath) : requestedPath;
-  const hasilPath = path.join(outputDir, 'hasil.json');
-  const historyPath = path.join(outputDir, 'history.json');
-
-  if (!(await fs.stat(hasilPath).catch(() => null))) {
-    console.error(`hasil.json tidak ditemukan di ${outputDir}`);
-    return;
-  }
-
-  console.log(`📁 Folder output: ${outputDir}`);
-  console.log(`📄 hasil.json: ${hasilPath}`);
-  console.log(
-    (await fs.stat(historyPath).catch(() => null))
-      ? `📚 history.json ditemukan: ${historyPath}`
-      : 'ℹ️ history.json belum ada; akan dibuat saat proses menyimpan history.',
-  );
+  const {
+    batchSize = 5,
+    delayMs = 5000,
+    waitForEnter = true,
+    app = 'https://labs.google/fx/id/tools/flow',
+  } = options;
 
   if (profiles.length === 0) {
     console.log('Tidak ada profil Chrome yang tersedia.');
-    return;
+    return [];
   }
 
-  for (const [index, profile] of profiles.entries()) {
-    const profileBrowser = new browser();
+  const maybeCheckOutput = async () => {
+    if (!outputPath) return null;
+    const requestedPath = outputPath.trim();
+    if (!requestedPath) return null;
 
+    const pathStat = await fs.stat(requestedPath).catch(() => null);
+    const outputDir = pathStat?.isFile() ? path.dirname(requestedPath) : requestedPath;
+    const hasilPath = path.join(outputDir, 'hasil.json');
+
+    if (!(await fs.stat(hasilPath).catch(() => null))) {
+      console.warn(`hasil.json tidak ditemukan di ${outputDir}; lanjutkan tanpa validasi.`);
+    }
+
+    return outputDir;
+  };
+
+  await maybeCheckOutput();
+
+  const runProfile = async (profile, meta) => {
+    const profileBrowser = new browser();
     try {
-      console.log(`🌐 Membuka shared Flow pada ${profile} (${index + 1}/${profiles.length})...`);
-      await profileBrowser.init(profile, {
-        appUrl: 'https://labs.google/fx/id/tools/flow',
-        visible: true,
-      });
+      console.log(
+        `🌐 Membuka shared Flow pada ${profile} (${meta.profileNumber}/${meta.totalProfiles})...`,
+      );
+      await profileBrowser.init(profile, { appUrl: app, visible: true });
       const page = profileBrowser.page;
 
-      await page.goto('https://labs.google/fx/id/tools/flow', { waitUntil: 'domcontentloaded' });
+      await page.goto(app, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(3000);
       await handleFlowPopups(page);
 
-      // Cek apakah project dengan tool sudah ada
       const newProjectButton = page
         .getByRole('button', { name: /Project baru|New project/i })
         .first();
-      if (await newProjectButton.count() > 0 && await newProjectButton.isVisible()) {
+      if ((await newProjectButton.count()) > 0 && (await newProjectButton.isVisible())) {
         await newProjectButton.click();
       }
 
@@ -404,12 +401,10 @@ export async function openSharedFlowInAllProfiles(outputPath) {
         (await promptMarker.isVisible());
 
       if (isPromptProject) {
-        activeBrowsers.push({ profile, context: profileBrowser.context });
         console.log(`✅ ${profile}: project sudah siap.`);
-        continue;
+        return { profile, status: 'ready' };
       }
 
-      // Buka shared flow dan salin ke project
       await page.goto(sharedFlowUrl, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(3000);
       await handleFlowPopups(page);
@@ -439,16 +434,27 @@ export async function openSharedFlowInAllProfiles(outputPath) {
       await pinButton.waitFor({ state: 'visible', timeout: 30000 });
       await pinButton.click();
 
-      activeBrowsers.push({ profile, context: profileBrowser.context });
       console.log(`✅ Project berhasil dibuka pada ${profile}.`);
-      await delay(1500);
+      return { profile, status: 'opened' };
     } catch (err) {
       console.error(`❌ Gagal membuka project pada '${profile}': ${err.message}`);
+      return { profile, status: 'failed', error: err.message };
+    } finally {
       await profileBrowser.close().catch(() => {});
     }
-  }
+  };
+
+  const results = await openProfilesInBatches({
+    profiles,
+    batchSize,
+    delayMs,
+    waitForEnter,
+    onProfile: runProfile,
+  });
 
   console.log(
-    `✅ Selesai: ${activeBrowsers.length}/${profiles.length} profile berhasil diproses.`,
+    `✅ Selesai: ${results.filter(item => item?.status !== 'failed').length}/${profiles.length} profile berhasil diproses.`,
   );
+
+  return results;
 }

@@ -12,7 +12,10 @@ import {
 import { ask, askAwal, askGroqNFlowGenerate } from "./utils/CliAsk/tanya.js";
 import { scrollAll, delay } from "./utils/scrool.js";
 import GroqAi from "./utils/groq/groqAi.js";
-import { generateImageFlow } from "../FlowGenerate/index.js";
+import {
+  generateImageFlow,
+  openSharedFlowInAllProfiles,
+} from "../FlowGenerate/index.js";
 import { stopTesting, testingMode } from "./utils/CliAsk/TestingMode.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -323,6 +326,12 @@ export async function main() {
     await generateImageFlow(outputDir);
     // await stopTesting('2', testingPilihan) // Testing hook: hentikan jika user memilih stop saat testing
 
+    await openSharedFlowInAllProfiles(outputDir, {
+      batchSize: 5,
+      delayMs: 5000,
+      waitForEnter: true,
+    });
+
     await sortingFile(outputDir);
 
     await delay(1000); //delay 10s
@@ -387,6 +396,11 @@ export async function startGroqNFlowGenerate() {
         "\n Mulai generate gambar dengan FlowGenerate berdasarkan hasil Groq...\n",
       );
       await generateImageFlow(outputDir);
+      await openSharedFlowInAllProfiles(outputDir, {
+        batchSize: 5,
+        delayMs: 5000,
+        waitForEnter: true,
+      });
 
       await sortingFile(outputDir);
 
@@ -446,6 +460,11 @@ export async function GenerateJustFlow(pathHasilJson) {
 
     // Call generateImageFlow with the directory that contains hasil.json
     await generateImageFlow(outputDir);
+    await openSharedFlowInAllProfiles(outputDir, {
+      batchSize: 5,
+      delayMs: 5000,
+      waitForEnter: true,
+    });
 
     console.log(`Selesai memproses: ${hasilPath}\n`);
   } catch (err) {
