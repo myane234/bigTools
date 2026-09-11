@@ -32,15 +32,32 @@ export async function ask(message, type = "input", extra = {}) {
   }
 }
 
+export function normalizeUrlList(rawText = "") {
+  return rawText
+    .split(/[\r\n,]+/)
+    .map((value) => value.replace(/[\u0000-\u001F\u007F]/g, "").trim())
+    .filter(Boolean)
+    .filter((value) => /^https?:\/\//i.test(value));
+}
+
+export async function readUrlQueue(urlFilePath = path.resolve(process.cwd(), "URL.txt")) {
+  try {
+    const raw = await fs.promises.readFile(urlFilePath, "utf8");
+    return normalizeUrlList(raw);
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      return [];
+    }
+    throw err;
+  }
+}
+
 export async function askAwal() {
   try {
     const urlFilePath = path.resolve(process.cwd(), "URL.txt");
-    const URL = (
-      await fs.promises.readFile(urlFilePath, "utf8")
-    ).replace(/[\u0000-\u001F\u007F]/g, "").trim();
-    await fs.promises.writeFile(urlFilePath, "", "utf8");
+    const URLs = await readUrlQueue(urlFilePath);
 
-    if (!URL) {
+    if (!URLs.length) {
       throw new Error("URL.txt kosong");
     }
 
@@ -58,9 +75,10 @@ export async function askAwal() {
 
     console.log(folderList);
 
-    return { URL, pageCustom, outputDir };
+    return { URLs, pageCustom, outputDir, urlFilePath };
   } catch (err) {
     console.error(`askAwal: ${err}`);
+    throw err;
   }
 }
 

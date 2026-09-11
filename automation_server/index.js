@@ -259,8 +259,7 @@ async function processImagesWithGroq(imagePath) {
 // FlowGenerate dipanggil langsung di main/start
 // generateImagesFromGroqResults function removed
 
-export async function main() {
-
+async function processSingleUrlQueue(URL, pageCustom, outputDir) {
   const browser = await puppeteer.launch({
     headless: true,
     args: [
@@ -279,8 +278,6 @@ export async function main() {
   await page.setUserAgent(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
   );
-
-  const { URL, pageCustom, outputDir } = await askAwal();
 
   try {
     await page.goto(URL, {
@@ -304,7 +301,7 @@ export async function main() {
     console.log("Mulai scroll pelan-pelan...");
 
     const groqPromise = groqWorker(outputDir);
-    const scrollResult = await scrollAll(page, pageCustom, outputDir); //1 kali scroll fullPage
+    await scrollAll(page, pageCustom, outputDir); //1 kali scroll fullPage
     setDownloaderFinished(true);
 
     console.log("\n Menutup browser setelah download selesai...");
@@ -312,19 +309,14 @@ export async function main() {
 
     await groqPromise;
 
-    // // Testing hook: hentikan jika user memilih stop saat testing
-    //     await stopTesting('1', testingPilihan)
-
     console.log(
       `\n Gambar berhasil disimpan di folder: ${path.join(outputDir, "downloads")}`,
     );
 
-    // Generate gambar dengan FlowGenerate
     console.log(
       "\n Mulai generate gambar dengan FlowGenerate berdasarkan hasil Groq...\n",
     );
     await generateImageFlow(outputDir);
-    // await stopTesting('2', testingPilihan) // Testing hook: hentikan jika user memilih stop saat testing
 
     await openSharedFlowInAllProfiles(outputDir, {
       batchSize: 5,
@@ -333,10 +325,7 @@ export async function main() {
     });
 
     await sortingFile(outputDir);
-
-    await delay(1000); //delay 10s
-
-    process.exit(0);
+    await delay(1000);
   } catch (error) {
     console.error("\n ERROR:", error.message);
     if (error.message.includes("timeout")) {
@@ -345,8 +334,42 @@ export async function main() {
       console.log("2. Naikkan timeout di waitForSelector");
       console.log("3. Coba keyword lain");
     }
+    throw error;
   } finally {
-    console.log("\n Browser sudah ditutup setelah download.");
+    try {
+      await browser.close();
+    } catch (err) {
+      console.log("\n Browser sudah ditutup setelah download.");
+    }
+  }
+}
+
+export async function main() {
+  const { URLs, pageCustom, outputDir: baseOutputDir, urlFilePath } = await askAwal();
+
+  try {
+    for (let index = 0; index < URLs.length; index++) {
+      const URL = URLs[index];
+      const outputDir = index === 0 ? baseOutputDir : path.join(path.dirname(baseOutputDir), `${path.basename(baseOutputDir)}_${index + 1}`);
+
+      if (index > 0) {
+        await fs.promises.mkdir(outputDir, { recursive: true });
+      }
+
+      console.log(`\n=== [${index + 1}/${URLs.length}] Memproses URL: ${URL} ===`);
+      await processSingleUrlQueue(URL, pageCustom, outputDir);
+
+      const remainingUrls = URLs.slice(index + 1);
+      await fs.promises.writeFile(urlFilePath, remainingUrls.join("\n"), "utf8");
+      console.log(`Queue tersisa: ${remainingUrls.length} URL`);
+    }
+
+    await fs.promises.writeFile(urlFilePath, "", "utf8");
+    console.log("\n✅ Semua URL di queue sudah diproses.");
+    process.exit(0);
+  } catch (error) {
+    console.error("\n ERROR pada queue multi URL:", error.message);
+    process.exit(1);
   }
 }
 
