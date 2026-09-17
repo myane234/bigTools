@@ -9,7 +9,7 @@ echo   bigTools Auto-Updater ^& Client Launcher
 echo ===================================================
 echo.
 
-:: 1. Pastikan Git tersedia untuk update source code
+
 where git >nul 2>nul
 if errorlevel 1 (
     echo [!] element yang di butuhkan tidak ada di komputer ini!
@@ -41,13 +41,20 @@ if not exist ".git\" (
     exit /b 1
 )
 
-echo [*] Mengecek update
-git pull --ff-only origin main
+echo [*] Mengambil update dari GitHub...
+git fetch origin main
 if errorlevel 1 (
     echo.
-    echo [ERROR] Update gagal.
-    echo Pastikan koneksi internet tersedia 
-    echo Perubahan lokal juga harus di-commit atau disimpan sebelum update fast-forward.
+    echo [ERROR] Gagal mengambil update.
+    echo Pastikan koneksi internet tersedia.
+    pause
+    exit /b 1
+)
+echo [*] Menghapus perubahan lokal dan menyamakan dengan origin/main...
+git reset --hard origin/main
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Gagal menjalankan git reset --hard.
     pause
     exit /b 1
 )
