@@ -260,8 +260,7 @@ async function processImagesWithGroq(imagePath) {
 // generateImagesFromGroqResults function removed
 
 async function processSingleUrlQueue(URL, pageCustom, outputDir) {
-  const browser = await puppeteer.launch({
-    headless: true,
+  const browserOptions = {
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -271,21 +270,44 @@ async function processSingleUrlQueue(URL, pageCustom, outputDir) {
       "--window-size=1920,1080",
     ],
     defaultViewport: null,
-  });
+  };
 
-  const page = await browser.newPage();
+  let browser = await puppeteer.launch({ ...browserOptions, headless: true });
+  let page = await browser.newPage();
 
   await page.setUserAgent(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
   );
 
   try {
-    await page.goto(URL, {
-      waitUntil: "networkidle2",
-      timeout: 30000,
-    });
+    try {
+      await page.goto(URL, {
+        // Halaman dinamis sering terus membuka request sehingga networkidle2
+        // tidak pernah tercapai meskipun halaman sudah bisa diproses.
+        waitUntil: "domcontentloaded",
+        timeout: 30000,
+      });
+    } catch (error) {
+      if (!error.message.toLowerCase().includes("timeout")) {
+        throw error;
+      }
 
-    await page.waitForSelector("img", { timeout: 10000 });
+      console.log(
+        "Navigasi headless timeout. Membuka ulang browser agar CAPTCHA bisa dilihat...",
+      );
+      await browser.close();
+      browser = await puppeteer.launch({ ...browserOptions, headless: false });
+      page = await browser.newPage();
+      await page.setUserAgent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      );
+      await page.goto(URL, {
+        waitUntil: "domcontentloaded",
+        timeout: 300000,
+      });
+    }
+
+    await page.waitForSelector("img", { timeout: 120000 });
 
     console.log("Menunggu gambar dimuat...");
     for (let i = 0; i < 5; i++) {
