@@ -81,6 +81,7 @@ async function mainMenu() {
 `),
   );
   // console.log('[1] Input API');
+  console.log('Versi: 1.8')
   console.log('[2] Start Automation');
   console.log('[3] Generate Prompt dari folder Download + Generate gambar');
   console.log('[4] Test Koneksi');
