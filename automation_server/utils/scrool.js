@@ -64,11 +64,11 @@ async function downloadsGambar(validUrls, folderName) {
     const jumlahDownload = validUrls.length;
 
     for (let i = 0; i < jumlahDownload; i++) {
-        try {
-            const randomName = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-            const url = validUrls[i];
-            const filename = `${folderName}/${randomName}_${i + 1}.jpg`;
+        const randomName = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        const url = validUrls[i];
+        const filename = `${folderName}/${randomName}_${i + 1}.jpg`;
 
+        try {
             console.log(`\n[${i + 1}/${jumlahDownload}] Mendownload...`);
             console.log(`URL: ${url.substring(0, 60)}...`);
 
